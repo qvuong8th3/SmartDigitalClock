@@ -17,19 +17,21 @@ Dự án IoT kết hợp giữa **Đồng hồ thời gian thực (RTC DS3231)**
 - **Khung chọn giờ báo thức**: Đặt giờ hẹn linh hoạt (Giờ:Phút).
 - **Công tắc Bật/Tắt báo thức**: Hiển thị rõ trạng thái Đang Bật / Đang Tắt trên thẻ KPI và giao diện.
 - **Chuông báo thức độc lập (Web Audio Synthesizer)**: Phát tiếng chuông ngắt quãng *"Bíp - Bíp - Bíp"* đặc trưng của đồng hồ điện tử khi đến giờ hẹn.
-- **Banner Báo thức**: Tích hợp nút `🔕 Tắt Báo Thức` và nút `⏳ Báo lại sau 5 phút (Snooze)`.
+- **Tự động ngắt sau 15 giây**: Chuông báo thức reo liên tục trong đúng 15 giây (kèm đồng hồ đếm ngược) rồi tự động tắt nếu người dùng chưa kịp thao tác.
+- **Banner Báo thức**: Tích hợp nút `🔕 Tắt Báo Thức` sớm và nút `⏳ Báo lại sau 5 phút (Snooze)`.
 
-### 3. Gán Gmail & Tự động Báo động về Gmail khi có cháy
-- **Ô nhập Gmail trực quan**: Có ô gán địa chỉ Gmail nhận cảnh báo khẩn cấp (`your_email@gmail.com`) kèm nút `💾 Lưu Gmail` (lưu tự động vào trình duyệt).
-- **Tự động gửi cảnh báo khi cháy**: Khi nhiệt độ cảm biến LM35 vượt ngưỡng cài đặt (hoặc khi bấm `🚨 Test Báo Cháy`), hệ thống sẽ:
-  - Tự động gửi cảnh báo khẩn cấp về hòm thư Gmail đã lưu kèm mốc thời gian, nhiệt độ tức thời và ảnh hiện trường.
-  - Hiển thị nút `📧 Mở Gmail Kiểm Tra` để xem ngay thư cảnh báo được soạn sẵn trên Gmail.
-  - Ghi nhận trạng thái gửi email vào Bảng Nhật ký sự kiện PCCC.
+### 3. Gán Gmail & Tự động Đồng bộ Toàn Hệ thống Khi Có Cháy
+- **Ô nhập Gmail trực quan**: Gán địa chỉ Gmail nhận cảnh báo khẩn cấp (`your_email@gmail.com`).
+- **Đồng bộ thời gian thực cho tất cả các máy**: Khi bất kỳ ai nhập và bấm `💾 Lưu Gmail`, địa chỉ này lập tức được lưu vào máy chủ và tự động đồng bộ tức thời đến toàn bộ các máy tính / điện thoại đang mở Dashboard.
+- **Báo cáo sự cố hỏa hoạn khẩn cấp chuẩn PCCC**: Khi nhiệt độ cảm biến LM35 vượt ngưỡng cài đặt (hoặc khi bấm `🚨 Test Báo Cháy`), hệ thống sẽ:
+  - Tự động phát báo cáo sự cố chuyên nghiệp về Gmail đã đồng bộ: gồm Mã sự cố, Mốc thời gian RTC DS3231, Nhiệt độ tức thời, Ngưỡng kích hoạt, Trạng thái còi 15s, Ảnh hiện trường và Quy trình ứng phó 5 bước chuẩn Cục Cảnh sát PCCC.
+  - Hiển thị nút `📧 Mở Gmail Kiểm Tra` để xem ngay thư cảnh báo được soạn sẵn chuẩn chỉnh.
+  - Tích hợp Cooldown chống spam hòm thư và ghi nhận trạng thái vào Nhật ký PCCC.
 
-### 4. Cảm biến nhiệt độ LM35 & Còi Báo Cháy PCCC
+### 4. Cảm biến nhiệt độ LM35 & Còi Báo Cháy PCCC (Tự ngắt sau 15 giây)
 - Giám sát nhiệt độ môi trường thời gian thực.
 - **Thanh trượt tùy chỉnh ngưỡng báo cháy**: Cài đặt ngưỡng từ `35°C` đến `80°C`.
-- **Còi hú báo cháy đa tần số (Wail Siren)**: Khác biệt hoàn toàn với tiếng chuông báo thức thông thường.
+- **Còi hú báo cháy đa tần số (Wail Siren)**: Tự động kích hoạt khi có cháy, kêu trong đúng **15 giây** (kèm đếm ngược trực quan) rồi tự ngắt để tránh ô nhiễm tiếng ồn kéo dài, trong khi hệ thống vẫn tiếp tục giám sát an toàn.
 - Biểu đồ nhiệt độ đổi màu theo mức độ an toàn.
 
 ### 5. Camera Giám sát Hiện trường Tích hợp (ESP32-CAM / Webcam)

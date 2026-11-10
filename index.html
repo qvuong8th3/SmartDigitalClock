@@ -1404,17 +1404,53 @@ function checkAlarmClockTrigger(now) {
   }
 }
 
+// Quản lý đếm ngược chuông báo thức 15 giây tự động ngắt
+let clockAlarm15sTimer = null;
+let clockAlarm15sCountdown = null;
+let clockAlarmRemainingSeconds = 0;
+
 function triggerClockAlarm() {
   isAlarmRinging = true;
   const banner = document.getElementById('clockAlarmBanner');
   if (banner) banner.classList.add('active');
   startAlarmBuzzerAudio();
-  showToast(`⏰ BÁO THỨC ĐANG REO (${alarmTimeStr})!`, '🔔', 8000);
+
+  clockAlarmRemainingSeconds = 15;
+  showToast(`⏰ BÁO THỨC ĐANG REO (${alarmTimeStr})! (Kêu trong 15 giây - Còn ${clockAlarmRemainingSeconds}s)`, '🔔', 16000);
+
+  const bannerDetail = document.getElementById('clockAlarmBannerDetail');
+  if (bannerDetail) {
+    bannerDetail.textContent = `Báo thức đồng hồ số RTC DS3231 đang kêu. Tự động ngắt sau ${clockAlarmRemainingSeconds} giây... Chúc bạn một ngày làm việc hiệu quả!`;
+  }
+
+  clearInterval(clockAlarm15sCountdown);
+  clockAlarm15sCountdown = setInterval(() => {
+    clockAlarmRemainingSeconds--;
+    if (bannerDetail && isAlarmRinging) {
+      if (clockAlarmRemainingSeconds > 0) {
+        bannerDetail.textContent = `Báo thức đồng hồ số RTC DS3231 đang kêu. Tự động ngắt sau ${clockAlarmRemainingSeconds} giây...`;
+      }
+    }
+    if (clockAlarmRemainingSeconds <= 0) {
+      clearInterval(clockAlarm15sCountdown);
+    }
+  }, 1000);
+
+  clearTimeout(clockAlarm15sTimer);
+  clockAlarm15sTimer = setTimeout(() => {
+    if (isAlarmRinging) {
+      dismissClockAlarm();
+      showToast('Chuông báo thức đã kêu đủ 15 giây và tự động dừng.', '🔕', 4000);
+    }
+  }, 15000);
+
   refreshAiFireAnalysis();
 }
 
 function dismissClockAlarm() {
   isAlarmRinging = false;
+  clearTimeout(clockAlarm15sTimer);
+  clearInterval(clockAlarm15sCountdown);
   const banner = document.getElementById('clockAlarmBanner');
   if (banner) banner.classList.remove('active');
   stopAlarmBuzzerAudio();
@@ -1437,9 +1473,44 @@ function snoozeClockAlarm() {
 }
 
 // =========================================================
-// QUẢN LÝ GMAIL NHẬN CẢNH BÁO CHÁY
+// QUẢN LÝ GMAIL NHẬN CẢNH BÁO CHÁY & ĐỒNG BỘ TOÀN HỆ THỐNG
 // =========================================================
-function saveAlertEmail() {
+async function syncEmailFromServer(silent = true) {
+  try {
+    const res = await fetch('/api/config/email');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && typeof data.email === 'string') {
+      const serverEmail = data.email.trim();
+      if (serverEmail && serverEmail !== userAlertEmail) {
+        const prevEmail = userAlertEmail;
+        userAlertEmail = serverEmail;
+        localStorage.setItem('fireAlertGmail', userAlertEmail);
+        updateGmailUI();
+        if (!silent || prevEmail) {
+          showToast(`🔄 Đã đồng bộ Gmail nhận cảnh báo từ hệ thống: ${userAlertEmail}`, '🌐', 4000);
+        }
+      } else if (!serverEmail && userAlertEmail) {
+        // Đẩy email từ client lên server nếu server chưa có
+        void pushEmailToServer(userAlertEmail);
+      }
+    }
+  } catch {
+    // Chế độ file:// hoặc không có server
+  }
+}
+
+async function pushEmailToServer(email) {
+  try {
+    await fetch('/api/config/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+  } catch {}
+}
+
+async function saveAlertEmail() {
   const input = document.getElementById('alertEmailInput');
   const email = (input?.value || '').trim();
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1452,7 +1523,26 @@ function saveAlertEmail() {
   userAlertEmail = email;
   localStorage.setItem('fireAlertGmail', email);
   updateGmailUI();
-  showToast(`Đã lưu Gmail nhận cảnh báo: ${email}`, '💾');
+
+  // Đẩy lên máy chủ để đồng bộ cho tất cả các máy truy cập liên kết
+  try {
+    const res = await fetch('/api/config/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`💾 Đã lưu & đồng bộ Gmail cho tất cả các máy truy cập: ${email}`, '🌐', 5000);
+      const statusLabel = document.getElementById('gmailAlertStatus');
+      if (statusLabel) statusLabel.textContent = `Đã đồng bộ toàn mạng: ${email}`;
+    } else {
+      showToast(`Đã lưu cục bộ: ${email}`, '💾');
+    }
+  } catch {
+    showToast(`Đã lưu Gmail trên trình duyệt: ${email}`, '💾');
+  }
+
   refreshAiFireAnalysis();
 }
 
@@ -1466,13 +1556,13 @@ function updateGmailUI() {
 
   if (userAlertEmail) {
     if (badgeText) {
-      badgeText.innerHTML = `<span>🟢</span> <strong style="color:#065f46;">Đã liên kết nhận tin:</strong> <span>${userAlertEmail}</span>`;
+      badgeText.innerHTML = `<span>🟢</span> <strong style="color:#065f46;">Đã lưu & đồng bộ nhận tin:</strong> <span>${userAlertEmail}</span> <span style="font-size:11px; color:#047857; margin-left:6px; font-weight:600;">(Đồng bộ tất cả các máy)</span>`;
     }
     if (fireStatusSub) fireStatusSub.textContent = `Gmail: ${userAlertEmail}`;
     if (aiGmailVal) { aiGmailVal.textContent = userAlertEmail; aiGmailVal.style.color = '#0284c7'; }
   } else {
     if (badgeText) {
-      badgeText.innerHTML = `<span>⚠️</span> <span style="color:#b91c1c;">Chưa có Gmail nhận tin. Hãy nhập địa chỉ email của bạn và bấm Lưu.</span>`;
+      badgeText.innerHTML = `<span>⚠️</span> <span style="color:#b91c1c;">Chưa có Gmail nhận tin. Hãy nhập Gmail của bạn và bấm "Lưu Gmail" để đồng bộ cho toàn bộ hệ thống.</span>`;
     }
     if (fireStatusSub) fireStatusSub.textContent = 'Gmail: Chưa gán địa chỉ';
     if (aiGmailVal) { aiGmailVal.textContent = 'Chưa gán'; aiGmailVal.style.color = '#64748b'; }
@@ -1490,7 +1580,7 @@ async function dispatchFireEmailAlert(reason = 'Nhiệt độ cảm biến LM35 
   lastEmailAlertSentTime = nowStr;
 
   const statusLabel = document.getElementById('gmailAlertStatus');
-  if (statusLabel) statusLabel.textContent = `Đang gửi cảnh báo tới ${userAlertEmail}...`;
+  if (statusLabel) statusLabel.textContent = `Đang gửi báo cáo khẩn cấp tới ${userAlertEmail}...`;
 
   // Lấy ảnh hiện trường gần nhất nếu có
   const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1].data : null;
@@ -1511,8 +1601,8 @@ async function dispatchFireEmailAlert(reason = 'Nhiệt độ cảm biến LM35 
 
     const data = await res.json();
     if (data.success) {
-      showToast(`📧 [ĐÃ GỬI BÁO ĐỘNG GMAIL]: Đã gửi thư khẩn cấp tới ${userAlertEmail}`, '🚨', 6000);
-      if (statusLabel) statusLabel.textContent = `Đã gửi lúc: ${nowStr}`;
+      showToast(`📧 [ĐÃ PHÁT BÁO CÁO GMAIL]: Đã gửi thư khẩn cấp tới ${userAlertEmail}`, '🚨', 6000);
+      if (statusLabel) statusLabel.textContent = `Đã gửi báo cáo lúc: ${nowStr}`;
     } else {
       throw new Error(data.error || 'Máy chủ trả về lỗi khi gửi email.');
     }
@@ -1530,7 +1620,7 @@ function sendTestEmailAlert() {
     document.getElementById('alertEmailInput')?.focus();
     return;
   }
-  showToast(`Đang gửi cảnh báo tới: ${userAlertEmail}...`, '📧');
+  showToast(`Đang gửi báo cáo khẩn cấp tới: ${userAlertEmail}...`, '📧');
   void dispatchFireEmailAlert('Kiểm thử thủ công hệ thống báo động qua Gmail');
   // Mở tab soạn thư Gmail được chuẩn bị sẵn nội dung để người dùng có thể gửi/kiểm tra ngay
   setTimeout(() => {
@@ -1543,8 +1633,31 @@ function openPreFilledGmail() {
     userAlertEmail = prompt('Nhập địa chỉ Gmail của bạn để mở hộp thư kiểm tra:') || '';
     if (!userAlertEmail) return;
   }
-  const subject = encodeURIComponent(`🚨 [KHẨN CẤP] Smart Fire Clock: Báo Động Hỏa Hoạn Nhiệt Độ ${currentTemp.toFixed(1)}°C!`);
-  const body = encodeURIComponent(`Kính gửi,\n\nHệ thống Đồng hồ Cảm biến Nhiệt Báo cháy Smart Clock ghi nhận biến cố bất thường:\n- Thời gian: ${getEffectiveTime().toLocaleString('vi-VN')}\n- Nhiệt độ LM35: ${currentTemp.toFixed(1)}°C\n- Ngưỡng an toàn: ${alarmThreshold.toFixed(1)}°C\n\nVui lòng kiểm tra hiện trường hoặc sơ tán ngay lập tức!\n\n(Hệ thống IoT 102 - Smart Digital Clock)`);
+  const subject = encodeURIComponent(`🚨 [BÁO CÁO SỰ CỐ KHẨN CẤP] Trung Tâm PCCC: Cảnh Báo Nguy Cơ Hỏa Hoạn ${currentTemp.toFixed(1)}°C Vượt Ngưỡng Tại Trạm Giám Sát!`);
+  const bodyText = `Kính gửi: Bộ phận Quản trị An toàn & Người phụ trách cơ sở,
+
+Hệ thống Đồng hồ Số Thông minh RTC DS3231 & Cảm biến nhiệt độ LM35 (Smart Fire Alarm Clock & AI Vision) xin gửi báo cáo sự cố nguy cơ hỏa hoạn khẩn cấp:
+
+I. THÔNG SỐ KỸ THUẬT VÀ DỮ LIỆU ĐO ĐƯỢC TỨC THỜI:
+- Mốc thời gian phát hiện: ${getEffectiveTime().toLocaleString('vi-VN')} (Đồng bộ theo RTC DS3231)
+- Vị trí điểm đo: Trạm cảm biến nhiệt môi trường LM35 & Camera giám sát hiện trường
+- Nhiệt độ đo được tức thời: ${currentTemp.toFixed(1)} °C
+- Ngưỡng kích hoạt an toàn: ${alarmThreshold.toFixed(1)} °C
+- Mức độ vượt ngưỡng: +${(currentTemp - alarmThreshold > 0 ? (currentTemp - alarmThreshold).toFixed(1) : '0.0')} °C
+- Tình trạng còi hú: Đã kích hoạt chu kỳ còi hú báo cháy 15 giây và camera đã lưu ảnh chứng cứ hiện trường.
+
+II. QUY TRÌNH PHẢN ỨNG VÀ XỬ LÝ KHẨN CẤP (TIÊU CHUẨN PCCC BỘ CÔNG AN):
+1. GIỮ BÌNH TĨNH VÀ NGẮT ĐIỆN: Cúp ngay cầu dao tổng (Aptomat) tại khu vực xảy ra cảnh báo nhằm triệt tiêu nguy cơ chập cháy điện lan rộng.
+2. XÁC MINH HIỆN TRƯỜNG: Quan sát hình ảnh camera an ninh để định vị chính xác vị trí đốm nhiệt hoặc khói.
+3. DẬP LỬA SƠ KHỞI: Dùng bình chữa cháy xách tay (khí CO2 hoặc bột ABC) dập tắt triệt để tại gốc lửa nếu mới phát sinh.
+4. TỔ CHỨC THOÁT HIỂM AN TOÀN: Dùng khăn ẩm bịt kín mũi miệng, cúi thấp người men sát chân tường thoát ra ngoài theo lối cầu thang bộ. TUYỆT ĐỐI KHÔNG SỬ DỤNG THANG MÁY.
+5. CỨU NẠN KHẨN CẤP: Gọi ngay đường dây nóng Cảnh sát PCCC và Cứu nạn Cứu hộ: 114 nếu sự cố vượt tầm kiểm soát cá nhân.
+
+-------------------------------------------------------------
+Hệ thống Giám sát An toàn PCCC & Smart Digital Clock · IoT 102
+Bản tin tự động gửi tới quản trị viên: ${userAlertEmail}`;
+
+  const body = encodeURIComponent(bodyText);
   const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(userAlertEmail)}&su=${subject}&body=${body}`;
   window.open(gmailUrl, '_blank');
 }
@@ -1564,6 +1677,10 @@ function initAudio() {
 }
 
 // Còi Báo Cháy (Wail Siren đa tần số)
+let fireSiren15sTimer = null;
+let fireSiren15sCountdown = null;
+let fireSirenRemainingSeconds = 0;
+
 function startFireSirenSound() {
   if (isSirenMuted) return;
   initAudio();
@@ -1606,7 +1723,63 @@ function startFireSirenSound() {
   }
 }
 
+// Kích hoạt còi hú báo cháy và chuông cảnh báo kêu trong đúng 15 giây rồi tự ngắt
+function triggerFireSiren15s(reason = 'Cảnh báo hỏa hoạn khẩn cấp') {
+  if (isSirenMuted) return;
+  initAudio();
+
+  // Dọn dẹp timer cũ nếu có
+  clearTimeout(fireSiren15sTimer);
+  clearInterval(fireSiren15sCountdown);
+
+  // Kích hoạt còi hú báo cháy và đồng bộ nhịp còi buzzer báo thức (Dual-tone alarm)
+  startFireSirenSound();
+  startAlarmBuzzerAudio();
+
+  fireSirenRemainingSeconds = 15;
+  showToast(`🚨 BÁO ĐỘNG HỎA HOẠN: Còi báo cháy & Chuông đang kêu trong 15 giây (Còn ${fireSirenRemainingSeconds}s)!`, '🚨', 16000);
+
+  const bannerDetail = document.getElementById('alarmBannerDetail');
+  if (bannerDetail) {
+    bannerDetail.textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo cháy đang hú trong 15 giây (Còn ${fireSirenRemainingSeconds}s)... Đã phát cảnh báo khẩn cấp tới Gmail: ${userAlertEmail || 'Chưa gán'}.`;
+  }
+
+  const buzzerState = document.getElementById('buzzerState');
+  if (buzzerState) {
+    buzzerState.textContent = '🚨 HÚ CÒI BÁO CHÁY (15s)';
+    buzzerState.style.color = '#ef4444';
+  }
+
+  fireSiren15sCountdown = setInterval(() => {
+    fireSirenRemainingSeconds--;
+    if (bannerDetail && isFireAlarmActive) {
+      if (fireSirenRemainingSeconds > 0) {
+        bannerDetail.textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo cháy đang hú trong 15 giây (Còn ${fireSirenRemainingSeconds}s)... Đã phát cảnh báo khẩn cấp tới Gmail: ${userAlertEmail || 'Chưa gán'}.`;
+      } else {
+        bannerDetail.textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo động đã kêu đủ 15 giây và tự động ngắt. Hệ thống tiếp tục giám sát an toàn hiện trường.`;
+      }
+    }
+    if (fireSirenRemainingSeconds <= 0) {
+      clearInterval(fireSiren15sCountdown);
+    }
+  }, 1000);
+
+  fireSiren15sTimer = setTimeout(() => {
+    stopFireSirenSound();
+    stopAlarmBuzzerAudio();
+    clearInterval(fireSiren15sCountdown);
+    showToast('Đã hoàn thành chu kỳ còi báo cháy (15 giây) và tự động dừng.', '✅', 4000);
+    if (buzzerState) {
+      buzzerState.textContent = 'Đã ngắt sau 15s (Giám sát)';
+      buzzerState.style.color = '#f59e0b';
+    }
+  }, 15000);
+}
+
 function stopFireSirenSound() {
+  clearTimeout(fireSiren15sTimer);
+  clearInterval(fireSiren15sCountdown);
+  stopAlarmBuzzerAudio();
   if (!isSirenPlaying) return;
   try {
     if (sirenGain && audioCtx) {
@@ -1622,39 +1795,14 @@ function stopFireSirenSound() {
   }
 }
 
-let fireSirenTestTimer = null;
-let fireSirenCountdownInterval = null;
-
 function testFireSirenAudio() {
   initAudio();
   if (isSirenPlaying) {
     stopFireSirenSound();
-    clearInterval(fireSirenCountdownInterval);
-    clearTimeout(fireSirenTestTimer);
     showToast('Đã dừng còi báo cháy sớm', '🔕');
     return;
   }
-
-  startFireSirenSound();
-  let remaining = 15;
-  showToast(`🔊 Đang phát còi báo cháy trong 15 giây... (Còn ${remaining}s - Bấm lại để dừng)`, '🚨', 16000);
-
-  clearInterval(fireSirenCountdownInterval);
-  fireSirenCountdownInterval = setInterval(() => {
-    remaining--;
-    if (remaining <= 0) {
-      clearInterval(fireSirenCountdownInterval);
-    } else if (remaining % 3 === 0) {
-      showToast(`🔊 Còi báo cháy: Còn ${remaining} giây...`, '🚨', 3200);
-    }
-  }, 1000);
-
-  clearTimeout(fireSirenTestTimer);
-  fireSirenTestTimer = setTimeout(() => {
-    stopFireSirenSound();
-    clearInterval(fireSirenCountdownInterval);
-    showToast('Đã hoàn thành phát thử còi báo cháy (15 giây)', '✅');
-  }, 15000);
+  triggerFireSiren15s('Thử nghiệm còi báo cháy PCCC');
 }
 
 function toggleSirenMute() {
@@ -1670,7 +1818,7 @@ function toggleSirenMute() {
     if (icon) icon.textContent = '🔊';
     if (txt) txt.textContent = 'Còi: Sẵn sàng';
     showToast('Còi báo động đã sẵn sàng phát tiếng', '🔊');
-    if (isFireAlarmActive) startFireSirenSound();
+    if (isFireAlarmActive) triggerFireSiren15s('Kích hoạt lại còi báo cháy');
   }
 }
 
@@ -1680,7 +1828,7 @@ function startAlarmBuzzerAudio() {
   if (!audioCtx || alarmBeeperInterval) return;
 
   function playSingleBeep() {
-    if (!isAlarmRinging && !alarmBeeperInterval) return;
+    if (!isAlarmRinging && !alarmBeeperInterval && !isFireAlarmActive) return;
     try {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
@@ -1712,42 +1860,14 @@ function stopAlarmBuzzerAudio() {
   }
 }
 
-let alarmBuzzerTestTimer = null;
-let alarmBuzzerCountdownInterval = null;
-
 function testAlarmBuzzerAudio() {
   initAudio();
   if (isAlarmRinging) {
-    isAlarmRinging = false;
-    stopAlarmBuzzerAudio();
-    clearInterval(alarmBuzzerCountdownInterval);
-    clearTimeout(alarmBuzzerTestTimer);
+    dismissClockAlarm();
     showToast('Đã dừng chuông báo thức sớm', '🔕');
     return;
   }
-
-  isAlarmRinging = true;
-  startAlarmBuzzerAudio();
-  let remaining = 15;
-  showToast(`⏰ Đang thử chuông báo thức Bíp-Bíp trong 15 giây... (Còn ${remaining}s - Bấm lại để dừng)`, '🔔', 16000);
-
-  clearInterval(alarmBuzzerCountdownInterval);
-  alarmBuzzerCountdownInterval = setInterval(() => {
-    remaining--;
-    if (remaining <= 0) {
-      clearInterval(alarmBuzzerCountdownInterval);
-    } else if (remaining % 3 === 0) {
-      showToast(`⏰ Chuông báo thức: Còn ${remaining} giây...`, '🔔', 3200);
-    }
-  }, 1000);
-
-  clearTimeout(alarmBuzzerTestTimer);
-  alarmBuzzerTestTimer = setTimeout(() => {
-    isAlarmRinging = false;
-    stopAlarmBuzzerAudio();
-    clearInterval(alarmBuzzerCountdownInterval);
-    showToast('Đã hoàn thành phát thử chuông báo thức (15 giây)', '✅');
-  }, 15000);
+  triggerClockAlarm();
 }
 
 // =========================================================
@@ -1962,6 +2082,7 @@ function resetFireAlarm() {
   currentTemp = 28.5;
   document.getElementById('temperature').textContent = currentTemp.toFixed(1);
   stopFireSirenSound();
+  dismissClockAlarm();
   newSample(currentTemp, 'Đặt lại an toàn');
   showToast('Đã đặt lại trạng thái an toàn PCCC', '↺');
 }
@@ -1981,7 +2102,9 @@ function checkFireCondition() {
     if (!isFireAlarmActive) {
       isFireAlarmActive = true;
       captureSnapshot('BÁO CHÁY TỰ ĐỘNG');
-      startFireSirenSound();
+
+      // Kích hoạt còi báo cháy & chuông cảnh báo kêu trong đúng 15 giây rồi tự ngắt
+      triggerFireSiren15s('Nhiệt độ cảm biến LM35 vượt ngưỡng an toàn');
 
       // KÍCH HOẠT GỬI CẢNH BÁO VỀ GMAIL
       if (userAlertEmail) {
@@ -2288,6 +2411,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Cập nhật trạng thái Báo thức và Gmail đã lưu
   updateAlarmUI();
   updateGmailUI();
+
+  // Đồng bộ Gmail từ Server ngay khi mở trang và lặp lại mỗi 3 giây cho mọi máy
+  void syncEmailFromServer(false);
+  setInterval(() => {
+    void syncEmailFromServer(true);
+  }, 3000);
 
   // Tạo mẫu đo nhiệt độ ban đầu
   for (let i = 0; i < 6; i++) newSample();
