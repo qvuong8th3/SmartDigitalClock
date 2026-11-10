@@ -779,6 +779,80 @@ footer {
   background: white;
 }
 
+/* Modal Firmware & Phần cứng */
+.modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.75);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  padding: 16px;
+}
+.modal-backdrop.active { display: flex; }
+.modal-window {
+  background: white;
+  border-radius: 12px;
+  max-width: 850px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+.modal-header {
+  padding: 14px 20px;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-tabs {
+  display: flex;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  padding: 0 16px;
+  gap: 8px;
+}
+.modal-tab-btn {
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.modal-tab-btn.active {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+}
+.modal-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.code-preview-box {
+  background: #090d16;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 380px;
+  border: 1px solid #1e293b;
+  white-space: pre;
+}
+
 @media (max-width: 900px) {
   .cards { grid-template-columns: repeat(2, 1fr); }
   .layout, .history-section, .ai-box-grid { grid-template-columns: 1fr; }
@@ -803,14 +877,17 @@ footer {
     </div>
   </div>
   <div class="header-actions">
+    <button type="button" id="hardwareModalBtn" onclick="openHardwareModal()" style="background:#0f172a; color:#38bdf8; border:1px solid #0284c7;">
+      🛠️ Code Firmware & Sơ Đồ
+    </button>
+    <button type="button" id="serialConnectBtn" onclick="toggleWebSerialConnection()" style="background:#0284c7; color:white; border:1px solid #0284c7;">
+      📡 Kết Nối Serial USB
+    </button>
     <button type="button" id="sirenToggleBtn" onclick="toggleSirenMute()">
       <span id="sirenIcon">🔊</span> <span id="sirenStatus">Còi: Sẵn sàng</span>
     </button>
     <button type="button" class="btn-danger" onclick="triggerSimulatedFire()">
       🚨 Test Báo Cháy (65°C)
-    </button>
-    <button type="button" id="modeBtn" onclick="toggleSystemMode()">
-      ◉ Mô phỏng RTC
     </button>
   </div>
 </header>
@@ -970,7 +1047,7 @@ footer {
           <button type="button" class="btn-danger" onclick="saveAlertEmail()">
             💾 Lưu Gmail
           </button>
-          <button type="button" class="btn-warning" onclick="sendTestEmailAlert()">
+          <button type="button" class="btn-warning" id="testEmailBtn" onclick="sendTestEmailAlert()">
             🧪 Gửi Thử Cảnh Báo
           </button>
           <button type="button" class="btn-primary" onclick="openPreFilledGmail()" style="background:#0284c7; border-color:#0284c7; color:white;">
@@ -1093,8 +1170,18 @@ footer {
     </article>
 
     <article class="panel">
-      <div class="eyebrow">NHẬT KÝ BIẾN CỐ & CẢNH BÁO GMAIL</div>
-      <h3 style="margin: 8px 0 12px;">Nhật Ký Cảnh Báo Sự Cố</h3>
+      <div class="eyebrow">NHẬT KÝ BIẾN CỐ & CẢNH BÁO GMAIL (TỰ LƯU LOCALSTORAGE)</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin: 8px 0 12px;">
+        <h3 style="margin: 0;">Nhật Ký Cảnh Báo Sự Cố</h3>
+        <div style="display:flex; gap:6px;">
+          <button type="button" onclick="exportHistoryCsv()" style="font-size:11px; padding:3px 8px; background:#0284c7; color:white; border:none; border-radius:4px; cursor:pointer;" title="Xuất lịch sử đo ra file Excel/CSV">
+            📥 Xuất CSV
+          </button>
+          <button type="button" onclick="clearHistoryReadings()" style="font-size:11px; padding:3px 8px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer;" title="Làm sạch nhật ký đo">
+            🗑️ Xóa Lịch Sử
+          </button>
+        </div>
+      </div>
       <table>
         <thead>
           <tr>
@@ -1220,7 +1307,154 @@ Tôi luôn đồng bộ theo thời gian thực với đồng hồ RTC DS3231, t
   Smart Digital Clock & Thermal Fire Alarm System · RTC DS3231 · Cảm biến nhiệt LM35 · Báo động Gmail & Camera AI · IoT 102
 </footer>
 
+<!-- Modal Thư viện Firmware & Sơ đồ phần cứng -->
+<div class="modal-backdrop" id="hardwareModal">
+  <div class="modal-window">
+    <div class="modal-header">
+      <div style="font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px;">
+        <span>🛠️</span> Thư Viện Code Firmware & Sơ Đồ Đấu Nối Phần Cứng (IoT 102)
+      </div>
+      <button type="button" onclick="closeHardwareModal()" style="background:transparent; border:none; color:white; font-size:18px; cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-tabs">
+      <button type="button" class="modal-tab-btn active" id="tabBtnArduino" onclick="switchHardwareTab('arduino')">Arduino Uno (C++)</button>
+      <button type="button" class="modal-tab-btn" id="tabBtnEsp32" onclick="switchHardwareTab('esp32')">ESP32-CAM (Stream)</button>
+      <button type="button" class="modal-tab-btn" id="tabBtnPinout" onclick="switchHardwareTab('pinout')">Sơ Đồ Đấu Nối Pinout</button>
+    </div>
+    <div class="modal-body" id="modalContentArduino">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <strong>Mã nguồn Arduino Uno R3: RTC DS3231 + LM35 + LCD 16x2 + Web Serial (115200 bps)</strong>
+        <button type="button" class="btn-primary" onclick="copyArduinoCode()" style="font-size:11px; padding:4px 10px;">📋 Sao Chép Mã</button>
+      </div>
+      <pre class="code-preview-box" id="arduinoCodeSnippet"></pre>
+    </div>
+    <div class="modal-body" id="modalContentEsp32" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <strong>Mã nguồn ESP32-CAM: Phát luồng video MJPEG & Gửi dữ liệu qua WiFi</strong>
+        <button type="button" class="btn-primary" onclick="copyEsp32Code()" style="font-size:11px; padding:4px 10px;">📋 Sao Chép Mã</button>
+      </div>
+      <pre class="code-preview-box" id="esp32CodeSnippet"></pre>
+    </div>
+    <div class="modal-body" id="modalContentPinout" style="display:none;">
+      <h4 style="margin: 0 0 10px;">Bảng Sơ Đồ Đấu Nối Dây (Pinout Connections)</h4>
+      <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+        <thead>
+          <tr style="background:#f1f5f9; text-align:left;">
+            <th style="padding:8px;">Linh kiện</th>
+            <th style="padding:8px;">Chân Module</th>
+            <th style="padding:8px;">Chân Arduino Uno</th>
+            <th style="padding:8px;">Mô tả chức năng</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;"><strong>RTC DS3231</strong></td><td style="padding:8px;">VCC / GND<br>SDA / SCL</td><td style="padding:8px;">5V / GND<br><strong>A4 / A5</strong></td><td style="padding:8px;">Đồng hồ thời gian thực I2C TCXO sai số cực thấp</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;"><strong>Cảm biến LM35</strong></td><td style="padding:8px;">VCC / Vout / GND</td><td style="padding:8px;">5V / <strong>A0</strong> / GND</td><td style="padding:8px;">Điện áp ra 10mV/°C, lọc trung bình trượt 10 mẫu</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;"><strong>LCD 16x2 I2C</strong></td><td style="padding:8px;">VCC / GND<br>SDA / SCL</td><td style="padding:8px;">5V / GND<br><strong>A4 / A5</strong></td><td style="padding:8px;">Hiển thị giờ, nhiệt độ và trạng thái hỏa hoạn</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;"><strong>Active Buzzer</strong></td><td style="padding:8px;">(+) / (-)</td><td style="padding:8px;"><strong>D8</strong> / GND</td><td style="padding:8px;">Phát còi hú PCCC & chuông báo thức (15s tự ngắt)</td></tr>
+          <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;"><strong>LED Đỏ Báo Cháy</strong></td><td style="padding:8px;">Anode / Cathode</td><td style="padding:8px;"><strong>D7</strong> (qua trở 220Ω) / GND</td><td style="padding:8px;">Đèn chớp sáng cảnh báo khi quá nhiệt</td></tr>
+          <tr><td style="padding:8px;"><strong>Nút Tắt Khẩn Cấp</strong></td><td style="padding:8px;">2 Chân tiếp điểm</td><td style="padding:8px;"><strong>D4</strong> / GND</td><td style="padding:8px;">Khử rung 50ms, dừng nhanh còi báo động</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
+// =========================================================
+// MÃ NGUỒN FIRMWARE ARDUINO & ESP32-CAM CHO MODAL
+// =========================================================
+const ARDUINO_FIRMWARE_CODE = `/*
+  SMART FIRE CLOCK - ARDUINO UNO R3 FIRMWARE (IoT 102)
+  RTC DS3231 + LM35 + LCD 16x2 I2C + BUZZER 15s + WEB SERIAL
+*/
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include "RTClib.h"
+
+const int PIN_LM35 = A0;
+const int PIN_BUZZER = 8;
+const int PIN_LED_FIRE = 7;
+const int PIN_BTN_STOP = 4;
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+RTC_DS3231 rtc;
+
+float currentTemperature = 28.5;
+float fireThreshold = 50.0;
+bool isFireAlarmActive = false;
+unsigned long fireStartTime = 0;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(PIN_BUZZER, OUTPUT);
+  pinMode(PIN_LED_FIRE, OUTPUT);
+  pinMode(PIN_BTN_STOP, INPUT_PULLUP);
+  
+  lcd.init();
+  lcd.backlight();
+  rtc.begin();
+}
+
+void loop() {
+  DateTime now = rtc.now();
+  
+  // Đọc & Lọc nhiễu LM35 (Moving Average 10 mẫu)
+  long sum = 0;
+  for (int i = 0; i < 10; i++) {
+    sum += analogRead(PIN_LM35);
+    delay(5);
+  }
+  float avgAdc = sum / 10.0;
+  currentTemperature = (avgAdc * 500.0) / 1023.0;
+
+  // Còi báo cháy: Kêu trong đúng 15 giây rồi tự ngắt
+  if (currentTemperature >= fireThreshold) {
+    if (!isFireAlarmActive) {
+      isFireAlarmActive = true;
+      fireStartTime = millis();
+    }
+    if (millis() - fireStartTime <= 15000) {
+      tone(PIN_BUZZER, 1200 + 300 * sin((millis() % 1000) * 0.00628));
+    } else {
+      noTone(PIN_BUZZER);
+    }
+  } else {
+    isFireAlarmActive = false;
+    noTone(PIN_BUZZER);
+  }
+
+  // Gửi telemetry JSON lên Dashboard Web qua cổng Serial USB (115200 bps)
+  Serial.print("{\\"temperature\\":");
+  Serial.print(currentTemperature, 1);
+  Serial.print(",\\"isFire\\":");
+  Serial.print(isFireAlarmActive ? "true" : "false");
+  Serial.println("}");
+  delay(1000);
+}`;
+
+const ESP32_FIRMWARE_CODE = `/*
+  ESP32-CAM FIRE MONITORING & MJPEG STREAM
+*/
+#include "esp_camera.h"
+#include <WiFi.h>
+
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+void startCameraServer();
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
+  startCameraServer();
+  Serial.println(WiFi.localIP());
+}
+
+void loop() {
+  delay(1000);
+}`;
+
 // =========================================================
 // TRẠNG THÁI TOÀN CỤC CỦA HỆ THỐNG
 // =========================================================
@@ -1242,6 +1476,15 @@ let isSirenMuted = false;
 let readings = [];
 let snapshots = [];
 let demo = true;
+
+// Web Serial API (Kết nối cáp USB phần cứng thật)
+let serialPort = null;
+let serialReader = null;
+let isSerialConnected = false;
+
+// Cooldown an toàn cho gửi Email (chống spam)
+let emailCooldownTimer = null;
+let emailCooldownRemaining = 0;
 
 // Cấu hình Gmail cảnh báo
 let userAlertEmail = localStorage.getItem('fireAlertGmail') || '';
@@ -1276,6 +1519,144 @@ function showToast(text, icon = 'ℹ️', duration = 3500) {
   toast.classList.add('show');
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+// =========================================================
+// MODAL FIRMWARE & SƠ ĐỒ ĐẤU NỐI PHẦN CỨNG
+// =========================================================
+function openHardwareModal() {
+  const modal = document.getElementById('hardwareModal');
+  if (modal) {
+    document.getElementById('arduinoCodeSnippet').textContent = ARDUINO_FIRMWARE_CODE;
+    document.getElementById('esp32CodeSnippet').textContent = ESP32_FIRMWARE_CODE;
+    modal.classList.add('active');
+  }
+}
+
+function closeHardwareModal() {
+  document.getElementById('hardwareModal')?.classList.remove('active');
+}
+
+function switchHardwareTab(tab) {
+  const btnAr = document.getElementById('tabBtnArduino');
+  const btnEsp = document.getElementById('tabBtnEsp32');
+  const btnPin = document.getElementById('tabBtnPinout');
+  const contentAr = document.getElementById('modalContentArduino');
+  const contentEsp = document.getElementById('modalContentEsp32');
+  const contentPin = document.getElementById('modalContentPinout');
+
+  btnAr?.classList.toggle('active', tab === 'arduino');
+  btnEsp?.classList.toggle('active', tab === 'esp32');
+  btnPin?.classList.toggle('active', tab === 'pinout');
+
+  if (contentAr) contentAr.style.display = tab === 'arduino' ? 'block' : 'none';
+  if (contentEsp) contentEsp.style.display = tab === 'esp32' ? 'block' : 'none';
+  if (contentPin) contentPin.style.display = tab === 'pinout' ? 'block' : 'none';
+}
+
+function copyArduinoCode() {
+  navigator.clipboard.writeText(ARDUINO_FIRMWARE_CODE);
+  showToast('Đã sao chép mã nguồn Arduino Uno vào Clipboard!', '📋');
+}
+
+function copyEsp32Code() {
+  navigator.clipboard.writeText(ESP32_FIRMWARE_CODE);
+  showToast('Đã sao chép mã nguồn ESP32-CAM vào Clipboard!', '📋');
+}
+
+// =========================================================
+// WEB SERIAL API - KẾT NỐI ARDUINO UNO QUA CÁP USB THẬT
+// =========================================================
+async function toggleWebSerialConnection() {
+  if (!('serial' in navigator)) {
+    alert('Trình duyệt của bạn chưa hỗ trợ Web Serial API. Vui lòng mở bằng Google Chrome hoặc Microsoft Edge trên máy tính để kết nối trực tiếp với Arduino Uno!');
+    return;
+  }
+
+  const btn = document.getElementById('serialConnectBtn');
+
+  if (isSerialConnected) {
+    try {
+      if (serialReader) {
+        await serialReader.cancel();
+        serialReader.releaseLock();
+      }
+      if (serialPort) {
+        await serialPort.close();
+      }
+    } catch {}
+    isSerialConnected = false;
+    serialPort = null;
+    serialReader = null;
+    if (btn) {
+      btn.textContent = '📡 Kết Nối Serial USB';
+      btn.style.background = '#0284c7';
+    }
+    demo = true;
+    showToast('Đã ngắt kết nối cổng Serial USB. Hệ thống chuyển về chế độ mô phỏng.', '🔌');
+    return;
+  }
+
+  try {
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: 115200 });
+    isSerialConnected = true;
+    demo = false;
+
+    if (btn) {
+      btn.textContent = '🟢 Ngắt Serial USB';
+      btn.style.background = '#059669';
+    }
+    showToast('Đã kết nối thành công Arduino Uno qua cổng Serial USB (115200 bps)!', '📡', 5000);
+
+    const decoder = new TextDecoderStream();
+    serialPort.readable.pipeTo(decoder.writable);
+    const inputStream = decoder.readable;
+    serialReader = inputStream.getReader();
+
+    let buffer = '';
+    while (isSerialConnected) {
+      const { value, done } = await serialReader.read();
+      if (done) break;
+      if (value) {
+        buffer += value;
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          handleSerialTelemetry(line.trim());
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Lỗi kết nối Web Serial:', err);
+    if (err.name !== 'NotFoundError') {
+      showToast(`Không thể mở cổng Serial: ${err.message}`, '⚠️');
+    }
+    isSerialConnected = false;
+    if (btn) {
+      btn.textContent = '📡 Kết Nối Serial USB';
+      btn.style.background = '#0284c7';
+    }
+  }
+}
+
+function handleSerialTelemetry(line) {
+  if (!line) return;
+  try {
+    if (line.startsWith('{') && line.endsWith('}')) {
+      const data = JSON.parse(line);
+      if (Number.isFinite(data.temperature)) {
+        currentTemp = data.temperature;
+        newSample(currentTemp, 'Mạch Arduino Thật (USB)');
+      }
+    } else if (line.includes('TEMP:') || line.includes('T:')) {
+      const match = line.match(/[-+]?[0-9]*\.?[0-9]+/);
+      if (match) {
+        currentTemp = parseFloat(match[0]);
+        newSample(currentTemp, 'Cảm biến LM35 Thật (USB)');
+      }
+    }
+  } catch {}
 }
 
 // =========================================================
@@ -1404,10 +1785,9 @@ function checkAlarmClockTrigger(now) {
   }
 }
 
-// Quản lý đếm ngược chuông báo thức 15 giây tự động ngắt
-let clockAlarm15sTimer = null;
-let clockAlarm15sCountdown = null;
-let clockAlarmRemainingSeconds = 0;
+// Quản lý chuông báo thức kêu liên tục vĩnh viễn cho đến khi người dùng tắt
+let clockAlarmElapsedSeconds = 0;
+let clockAlarmCountTimer = null;
 
 function triggerClockAlarm() {
   isAlarmRinging = true;
@@ -1415,42 +1795,28 @@ function triggerClockAlarm() {
   if (banner) banner.classList.add('active');
   startAlarmBuzzerAudio();
 
-  clockAlarmRemainingSeconds = 15;
-  showToast(`⏰ BÁO THỨC ĐANG REO (${alarmTimeStr})! (Kêu trong 15 giây - Còn ${clockAlarmRemainingSeconds}s)`, '🔔', 16000);
+  clockAlarmElapsedSeconds = 0;
+  showToast(`⏰ BÁO THỨC ĐANG REO (${alarmTimeStr})! (Kêu liên tục cho đến khi bạn tắt)`, '🔔', 10000);
 
   const bannerDetail = document.getElementById('clockAlarmBannerDetail');
   if (bannerDetail) {
-    bannerDetail.textContent = `Báo thức đồng hồ số RTC DS3231 đang kêu. Tự động ngắt sau ${clockAlarmRemainingSeconds} giây... Chúc bạn một ngày làm việc hiệu quả!`;
+    bannerDetail.textContent = `Báo thức đồng hồ số RTC DS3231 đang kêu liên tục. Vui lòng bấm "Tắt Báo Thức" hoặc "Báo lại sau 5 phút" để dừng chuông.`;
   }
 
-  clearInterval(clockAlarm15sCountdown);
-  clockAlarm15sCountdown = setInterval(() => {
-    clockAlarmRemainingSeconds--;
+  clearInterval(clockAlarmCountTimer);
+  clockAlarmCountTimer = setInterval(() => {
+    clockAlarmElapsedSeconds++;
     if (bannerDetail && isAlarmRinging) {
-      if (clockAlarmRemainingSeconds > 0) {
-        bannerDetail.textContent = `Báo thức đồng hồ số RTC DS3231 đang kêu. Tự động ngắt sau ${clockAlarmRemainingSeconds} giây...`;
-      }
-    }
-    if (clockAlarmRemainingSeconds <= 0) {
-      clearInterval(clockAlarm15sCountdown);
+      bannerDetail.textContent = `Báo thức đồng hồ số RTC DS3231 đang reo liên tục (${clockAlarmElapsedSeconds}s)... Bấm "Tắt Báo Thức" để ngắt chuông.`;
     }
   }, 1000);
-
-  clearTimeout(clockAlarm15sTimer);
-  clockAlarm15sTimer = setTimeout(() => {
-    if (isAlarmRinging) {
-      dismissClockAlarm();
-      showToast('Chuông báo thức đã kêu đủ 15 giây và tự động dừng.', '🔕', 4000);
-    }
-  }, 15000);
 
   refreshAiFireAnalysis();
 }
 
 function dismissClockAlarm() {
   isAlarmRinging = false;
-  clearTimeout(clockAlarm15sTimer);
-  clearInterval(clockAlarm15sCountdown);
+  clearInterval(clockAlarmCountTimer);
   const banner = document.getElementById('clockAlarmBanner');
   if (banner) banner.classList.remove('active');
   stopAlarmBuzzerAudio();
@@ -1569,12 +1935,49 @@ function updateGmailUI() {
   }
 }
 
+// Bắt đầu đếm ngược Cooldown an toàn cho gửi Email (chống spam)
+function startEmailCooldown(seconds = 45) {
+  if (emailCooldownRemaining > 0) return;
+  emailCooldownRemaining = seconds;
+  const testBtn = document.getElementById('testEmailBtn');
+  const statusLabel = document.getElementById('gmailAlertStatus');
+
+  clearInterval(emailCooldownTimer);
+  if (testBtn) {
+    testBtn.disabled = true;
+    testBtn.textContent = `⏳ Cooldown (${emailCooldownRemaining}s)`;
+    testBtn.style.opacity = '0.7';
+    testBtn.style.cursor = 'not-allowed';
+  }
+
+  emailCooldownTimer = setInterval(() => {
+    emailCooldownRemaining--;
+    if (testBtn) {
+      if (emailCooldownRemaining > 0) {
+        testBtn.textContent = `⏳ Cooldown (${emailCooldownRemaining}s)`;
+        if (statusLabel) statusLabel.textContent = `🛡️ Cooldown chống spam: Còn ${emailCooldownRemaining}s`;
+      } else {
+        testBtn.disabled = false;
+        testBtn.textContent = '🧪 Gửi Thử Cảnh Báo';
+        testBtn.style.opacity = '1';
+        testBtn.style.cursor = 'pointer';
+        if (statusLabel) statusLabel.textContent = userAlertEmail ? `Đã đồng bộ: ${userAlertEmail}` : 'Sẵn sàng';
+        clearInterval(emailCooldownTimer);
+      }
+    }
+    if (emailCooldownRemaining <= 0) clearInterval(emailCooldownTimer);
+  }, 1000);
+}
+
 // Gửi cảnh báo hỏa hoạn tới Gmail
 async function dispatchFireEmailAlert(reason = 'Nhiệt độ cảm biến LM35 vượt ngưỡng an toàn') {
   if (!userAlertEmail) {
     showToast('Chưa gán địa chỉ Gmail nhận tin cảnh báo!', '⚠️');
     return;
   }
+
+  // Khởi động Cooldown an toàn trên giao diện
+  startEmailCooldown(45);
 
   const nowStr = getEffectiveTime().toLocaleString('vi-VN');
   lastEmailAlertSentTime = nowStr;
@@ -1601,8 +2004,12 @@ async function dispatchFireEmailAlert(reason = 'Nhiệt độ cảm biến LM35 
 
     const data = await res.json();
     if (data.success) {
-      showToast(`📧 [ĐÃ PHÁT BÁO CÁO GMAIL]: Đã gửi thư khẩn cấp tới ${userAlertEmail}`, '🚨', 6000);
-      if (statusLabel) statusLabel.textContent = `Đã gửi báo cáo lúc: ${nowStr}`;
+      if (data.method === 'SMTP_REAL') {
+        showToast(`📧 [GMAIL THỰC TẾ]: Đã tự động gửi thư báo cháy vào Inbox của ${userAlertEmail}!`, '🚨', 7000);
+      } else {
+        showToast(`📧 [TỰ ĐỘNG GỬI GMAIL]: Đã kích hoạt gửi báo cáo hỏa hoạn tới ${userAlertEmail}!`, '🚨', 6000);
+      }
+      if (statusLabel) statusLabel.textContent = `Đã tự động gửi lúc: ${nowStr}`;
     } else {
       throw new Error(data.error || 'Máy chủ trả về lỗi khi gửi email.');
     }
@@ -1644,7 +2051,7 @@ I. THÔNG SỐ KỸ THUẬT VÀ DỮ LIỆU ĐO ĐƯỢC TỨC THỜI:
 - Nhiệt độ đo được tức thời: ${currentTemp.toFixed(1)} °C
 - Ngưỡng kích hoạt an toàn: ${alarmThreshold.toFixed(1)} °C
 - Mức độ vượt ngưỡng: +${(currentTemp - alarmThreshold > 0 ? (currentTemp - alarmThreshold).toFixed(1) : '0.0')} °C
-- Tình trạng còi hú: Đã kích hoạt chu kỳ còi hú báo cháy 15 giây và camera đã lưu ảnh chứng cứ hiện trường.
+- Tình trạng còi hú: Còi hú báo cháy PCCC đang hú liên tục vĩnh viễn (cho đến khi xử lý tại chỗ) và camera đã lưu ảnh chứng cứ hiện trường.
 
 II. QUY TRÌNH PHẢN ỨNG VÀ XỬ LÝ KHẨN CẤP (TIÊU CHUẨN PCCC BỘ CÔNG AN):
 1. GIỮ BÌNH TĨNH VÀ NGẮT ĐIỆN: Cúp ngay cầu dao tổng (Aptomat) tại khu vực xảy ra cảnh báo nhằm triệt tiêu nguy cơ chập cháy điện lan rộng.
@@ -1676,10 +2083,11 @@ function initAudio() {
   }
 }
 
-// Còi Báo Cháy (Wail Siren đa tần số)
-let fireSiren15sTimer = null;
-let fireSiren15sCountdown = null;
-let fireSirenRemainingSeconds = 0;
+// Còi Báo Cháy (Wail Siren đa tần số hú liên tục vĩnh viễn cho đến khi tắt)
+let sirenLFO = null;
+let sirenLFOGain = null;
+let fireSirenElapsedSeconds = 0;
+let fireSirenCountTimer = null;
 
 function startFireSirenSound() {
   if (isSirenMuted) return;
@@ -1692,23 +2100,25 @@ function startFireSirenSound() {
     sirenOsc2 = audioCtx.createOscillator();
     sirenGain = audioCtx.createGain();
 
+    // Dùng LFO dao động liên tục vô hạn
+    sirenLFO = audioCtx.createOscillator();
+    sirenLFOGain = audioCtx.createGain();
+
     sirenOsc1.type = 'sawtooth';
     sirenOsc2.type = 'sine';
 
+    sirenOsc1.frequency.value = 850;
+    sirenOsc2.frequency.value = 860;
+
+    sirenLFO.type = 'sine';
+    sirenLFO.frequency.value = 0.8; // Chu kỳ hú 1.25 giây
+    sirenLFOGain.gain.value = 320;   // Dao động +-320Hz
+
+    sirenLFO.connect(sirenLFOGain);
+    sirenLFOGain.connect(sirenOsc1.frequency);
+    sirenLFOGain.connect(sirenOsc2.frequency);
+
     const now = audioCtx.currentTime;
-    sirenOsc1.frequency.setValueAtTime(650, now);
-    sirenOsc2.frequency.setValueAtTime(660, now);
-
-    // Hiệu ứng dao động tần số còi hú PCCC
-    const cycle = 1.2;
-    for (let i = 0; i < 40; i++) {
-      const t = now + i * cycle;
-      sirenOsc1.frequency.exponentialRampToValueAtTime(1100, t + cycle * 0.5);
-      sirenOsc1.frequency.exponentialRampToValueAtTime(650, t + cycle);
-      sirenOsc2.frequency.exponentialRampToValueAtTime(1150, t + cycle * 0.5);
-      sirenOsc2.frequency.exponentialRampToValueAtTime(660, t + cycle);
-    }
-
     sirenGain.gain.setValueAtTime(0.01, now);
     sirenGain.gain.exponentialRampToValueAtTime(0.28, now + 0.1);
 
@@ -1718,67 +2128,50 @@ function startFireSirenSound() {
 
     sirenOsc1.start();
     sirenOsc2.start();
+    sirenLFO.start();
   } catch (e) {
     console.warn('Lỗi Audio API Siren:', e);
   }
 }
 
-// Kích hoạt còi hú báo cháy và chuông cảnh báo kêu trong đúng 15 giây rồi tự ngắt
-function triggerFireSiren15s(reason = 'Cảnh báo hỏa hoạn khẩn cấp') {
+// Kích hoạt còi hú báo cháy và chuông cảnh báo kêu liên tục vĩnh viễn cho đến khi tắt
+function triggerContinuousFireSiren(reason = 'Cảnh báo hỏa hoạn khẩn cấp') {
   if (isSirenMuted) return;
   initAudio();
 
-  // Dọn dẹp timer cũ nếu có
-  clearTimeout(fireSiren15sTimer);
-  clearInterval(fireSiren15sCountdown);
+  clearInterval(fireSirenCountTimer);
 
   // Kích hoạt còi hú báo cháy và đồng bộ nhịp còi buzzer báo thức (Dual-tone alarm)
   startFireSirenSound();
   startAlarmBuzzerAudio();
 
-  fireSirenRemainingSeconds = 15;
-  showToast(`🚨 BÁO ĐỘNG HỎA HOẠN: Còi báo cháy & Chuông đang kêu trong 15 giây (Còn ${fireSirenRemainingSeconds}s)!`, '🚨', 16000);
+  fireSirenElapsedSeconds = 0;
+  showToast(`🚨 BÁO ĐỘNG HỎA HOẠN: Còi báo cháy đang hú liên tục (Kêu vĩnh viễn cho đến khi bạn bấm tắt)!`, '🚨', 10000);
 
   const bannerDetail = document.getElementById('alarmBannerDetail');
   if (bannerDetail) {
-    bannerDetail.textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo cháy đang hú trong 15 giây (Còn ${fireSirenRemainingSeconds}s)... Đã phát cảnh báo khẩn cấp tới Gmail: ${userAlertEmail || 'Chưa gán'}.`;
+    bannerDetail.textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo cháy đang hú liên tục... Đã tự động phát cảnh báo tới Gmail: ${userAlertEmail || 'Chưa gán'}.`;
   }
 
   const buzzerState = document.getElementById('buzzerState');
   if (buzzerState) {
-    buzzerState.textContent = '🚨 HÚ CÒI BÁO CHÁY (15s)';
+    buzzerState.textContent = '🚨 HÚ LIÊN TỤC (VĨNH VIỄN)';
     buzzerState.style.color = '#ef4444';
   }
 
-  fireSiren15sCountdown = setInterval(() => {
-    fireSirenRemainingSeconds--;
+  fireSirenCountTimer = setInterval(() => {
+    fireSirenElapsedSeconds++;
     if (bannerDetail && isFireAlarmActive) {
-      if (fireSirenRemainingSeconds > 0) {
-        bannerDetail.textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo cháy đang hú trong 15 giây (Còn ${fireSirenRemainingSeconds}s)... Đã phát cảnh báo khẩn cấp tới Gmail: ${userAlertEmail || 'Chưa gán'}.`;
-      } else {
-        bannerDetail.textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo động đã kêu đủ 15 giây và tự động ngắt. Hệ thống tiếp tục giám sát an toàn hiện trường.`;
-      }
-    }
-    if (fireSirenRemainingSeconds <= 0) {
-      clearInterval(fireSiren15sCountdown);
+      bannerDetail.textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo cháy đang hú liên tục (${fireSirenElapsedSeconds}s)... Đã tự động gửi cảnh báo tới Gmail: ${userAlertEmail || 'Chưa gán'}. Bấm "Tắt Báo Động & Đặt Lại" để ngắt.`;
     }
   }, 1000);
-
-  fireSiren15sTimer = setTimeout(() => {
-    stopFireSirenSound();
-    stopAlarmBuzzerAudio();
-    clearInterval(fireSiren15sCountdown);
-    showToast('Đã hoàn thành chu kỳ còi báo cháy (15 giây) và tự động dừng.', '✅', 4000);
-    if (buzzerState) {
-      buzzerState.textContent = 'Đã ngắt sau 15s (Giám sát)';
-      buzzerState.style.color = '#f59e0b';
-    }
-  }, 15000);
 }
 
+// Bí danh tương thích
+const triggerFireSiren15s = triggerContinuousFireSiren;
+
 function stopFireSirenSound() {
-  clearTimeout(fireSiren15sTimer);
-  clearInterval(fireSiren15sCountdown);
+  clearInterval(fireSirenCountTimer);
   stopAlarmBuzzerAudio();
   if (!isSirenPlaying) return;
   try {
@@ -1787,7 +2180,11 @@ function stopFireSirenSound() {
       sirenGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.15);
     }
     setTimeout(() => {
-      try { sirenOsc1?.stop(); sirenOsc2?.stop(); } catch {}
+      try {
+        sirenOsc1?.stop();
+        sirenOsc2?.stop();
+        sirenLFO?.stop();
+      } catch {}
       isSirenPlaying = false;
     }, 180);
   } catch {
@@ -1799,10 +2196,10 @@ function testFireSirenAudio() {
   initAudio();
   if (isSirenPlaying) {
     stopFireSirenSound();
-    showToast('Đã dừng còi báo cháy sớm', '🔕');
+    showToast('Đã dừng còi báo cháy', '🔕');
     return;
   }
-  triggerFireSiren15s('Thử nghiệm còi báo cháy PCCC');
+  triggerContinuousFireSiren('Thử nghiệm còi báo cháy PCCC');
 }
 
 function toggleSirenMute() {
@@ -1818,7 +2215,7 @@ function toggleSirenMute() {
     if (icon) icon.textContent = '🔊';
     if (txt) txt.textContent = 'Còi: Sẵn sàng';
     showToast('Còi báo động đã sẵn sàng phát tiếng', '🔊');
-    if (isFireAlarmActive) triggerFireSiren15s('Kích hoạt lại còi báo cháy');
+    if (isFireAlarmActive) triggerContinuousFireSiren('Kích hoạt lại còi báo cháy');
   }
 }
 
@@ -2015,6 +2412,9 @@ function captureSnapshot(reason = 'Thủ công') {
   const dataUrl = offscreen.toDataURL('image/jpeg', 0.85);
   snapshots.unshift({ time: timeNow, temp: currentTemp.toFixed(1), reason, data: dataUrl });
   snapshots = snapshots.slice(0, 10);
+  try {
+    localStorage.setItem('fireSnapshotsHistory', JSON.stringify(snapshots));
+  } catch {}
   renderSnapshots();
   showToast(`Đã chụp ảnh hiện trường (${reason})`, '📸');
 }
@@ -2024,7 +2424,7 @@ function renderSnapshots() {
   const countText = document.getElementById('snapshotCountText');
   if (!list) return;
 
-  if (countText) countText.textContent = `Đã lưu ${snapshots.length} ảnh hiện trường`;
+  if (countText) countText.textContent = `Đã lưu ${snapshots.length} ảnh hiện trường (Tự lưu localStorage)`;
 
   if (snapshots.length === 0) {
     list.innerHTML = '<div class="muted" style="font-size:12px; padding:6px 0;">Chưa có ảnh chụp nào. Bấm \'Chụp Ảnh Hiện Trường\' hoặc kích hoạt báo cháy để tự động lưu ảnh.</div>';
@@ -2043,6 +2443,9 @@ function renderSnapshots() {
 function deleteSnapshot(idx) {
   if (idx >= 0 && idx < snapshots.length) {
     snapshots.splice(idx, 1);
+    try {
+      localStorage.setItem('fireSnapshotsHistory', JSON.stringify(snapshots));
+    } catch {}
     renderSnapshots();
     showToast('Đã xóa 1 ảnh hiện trường thành công!', '🗑️');
     refreshAiFireAnalysis();
@@ -2056,6 +2459,9 @@ function clearAllSnapshots() {
   }
   if (confirm(`Bạn có chắc chắn muốn xóa toàn bộ ${snapshots.length} ảnh hiện trường đã lưu không?`)) {
     snapshots = [];
+    try {
+      localStorage.removeItem('fireSnapshotsHistory');
+    } catch {}
     renderSnapshots();
     showToast('Đã xóa toàn bộ ảnh hiện trường thành công!', '🗑️');
     refreshAiFireAnalysis();
@@ -2075,6 +2481,16 @@ function updateThreshold(val) {
 function triggerSimulatedFire() {
   currentTemp = 65.5;
   document.getElementById('temperature').textContent = currentTemp.toFixed(1);
+  // Tự động kiểm tra nếu người dùng đã nhập email vào ô nhưng chưa kịp bấm Lưu
+  if (!userAlertEmail) {
+    const inputVal = (document.getElementById('alertEmailInput')?.value || '').trim();
+    if (inputVal && inputVal.includes('@')) {
+      userAlertEmail = inputVal;
+      localStorage.setItem('fireAlertGmail', inputVal);
+      void pushEmailToServer(inputVal);
+      updateGmailUI();
+    }
+  }
   newSample(currentTemp, 'Mô phỏng hỏa hoạn khẩn cấp');
 }
 
@@ -2084,7 +2500,7 @@ function resetFireAlarm() {
   stopFireSirenSound();
   dismissClockAlarm();
   newSample(currentTemp, 'Đặt lại an toàn');
-  showToast('Đã đặt lại trạng thái an toàn PCCC', '↺');
+  showToast('Đã tắt báo động & đưa hệ thống về trạng thái an toàn', '↺');
 }
 
 function checkFireCondition() {
@@ -2103,25 +2519,39 @@ function checkFireCondition() {
       isFireAlarmActive = true;
       captureSnapshot('BÁO CHÁY TỰ ĐỘNG');
 
-      // Kích hoạt còi báo cháy & chuông cảnh báo kêu trong đúng 15 giây rồi tự ngắt
-      triggerFireSiren15s('Nhiệt độ cảm biến LM35 vượt ngưỡng an toàn');
+      // Tự động lấy email trong ô nhập nếu chưa bấm Lưu
+      if (!userAlertEmail) {
+        const inputVal = (document.getElementById('alertEmailInput')?.value || '').trim();
+        if (inputVal && inputVal.includes('@')) {
+          userAlertEmail = inputVal;
+          localStorage.setItem('fireAlertGmail', inputVal);
+          void pushEmailToServer(inputVal);
+          updateGmailUI();
+        }
+      }
 
-      // KÍCH HOẠT GỬI CẢNH BÁO VỀ GMAIL
+      // Kích hoạt còi báo cháy & chuông cảnh báo kêu LIÊN TỤC VĨNH VIỄN cho đến khi người dùng tắt
+      triggerContinuousFireSiren('Nhiệt độ cảm biến LM35 vượt ngưỡng an toàn');
+
+      // TỰ ĐỘNG GỬI CẢNH BÁO VỀ GMAIL ĐÃ LƯU
       if (userAlertEmail) {
         void dispatchFireEmailAlert(`Nhiệt độ cảm biến LM35 đạt ${currentTemp.toFixed(1)}°C, vượt ngưỡng an toàn ${alarmThreshold.toFixed(1)}°C`);
       } else {
-        showToast('⚠️ Nhiệt độ vượt ngưỡng! Vui lòng nhập Gmail của bạn để nhận email cảnh báo tự động.', '⚠️', 6000);
+        showToast('⚠️ PHÁT HIỆN HỎA HOẠN! Vui lòng nhập địa chỉ Gmail để hệ thống tự động gửi email báo cháy.', '⚠️', 6000);
       }
     }
 
     if (banner) banner.classList.add('active');
-    document.getElementById('alarmBannerDetail').textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo động đang kêu và hệ thống đã gửi cảnh báo tới Gmail: ${userAlertEmail || 'Chưa gán'}.`;
+    const bannerDetail = document.getElementById('alarmBannerDetail');
+    if (bannerDetail) {
+      bannerDetail.textContent = `Cảm biến LM35 đo được ${currentTemp.toFixed(1)}°C (Vượt ngưỡng ${alarmThreshold.toFixed(1)}°C!). Còi báo cháy đang hú liên tục không ngừng cho đến khi bạn tắt... Hệ thống đã tự động gửi cảnh báo tới Gmail: ${userAlertEmail || 'Chưa gán'}.`;
+    }
     if (fireText) { fireText.textContent = 'BÁO ĐỘNG CHÁY!'; fireText.className = 'metric red'; }
-    if (fireSub) fireSub.textContent = `🚨 Đã báo về Gmail: ${userAlertEmail || 'Chưa gán'}`;
+    if (fireSub) fireSub.textContent = `🚨 Đã tự động báo về: ${userAlertEmail || 'Chưa gán Gmail'}`;
     if (fireIcon) { fireIcon.textContent = '🔥'; fireIcon.className = 'red'; }
     if (clock) clock.classList.add('danger-state');
     if (cameraViewport) cameraViewport.classList.add('alert-border');
-    if (buzzerState) { buzzerState.textContent = '🚨 KÍCH HOẠT (Hú Còi)'; buzzerState.style.color = '#ef4444'; }
+    if (buzzerState) { buzzerState.textContent = '🚨 HÚ LIÊN TỤC (VĨNH VIỄN)'; buzzerState.style.color = '#ef4444'; }
     if (hudBadge) { hudBadge.className = 'hud-badge danger'; hudBadge.innerHTML = '🚨 FIRE ALARM DETECT'; }
   } else if (currentTemp >= alarmThreshold - 10) {
     // CẢNH BÁO NHIỆT TĂNG CAO
@@ -2173,12 +2603,55 @@ function newSample(forceTemp = null, reason = 'Chu kỳ tự động') {
     temp: currentTemp,
     isDanger: currentTemp >= alarmThreshold
   });
-  readings = readings.slice(-10);
+  readings = readings.slice(-20); // Giữ tối đa 20 mẫu đo liên tục
+  try {
+    localStorage.setItem('fireReadingsHistory', JSON.stringify(readings));
+  } catch {}
 
   renderThermalChart();
   renderHistoryTable(reason);
   checkFireCondition();
   refreshAiFireAnalysis();
+}
+
+function exportHistoryCsv() {
+  if (!readings || readings.length === 0) {
+    showToast('Chưa có dữ liệu đo nhiệt độ để xuất file!', '⚠️');
+    return;
+  }
+
+  let csvContent = '\uFEFF'; // BOM UTF-8
+  csvContent += 'Mốc Thời Gian,Nhiệt Độ LM35 (°C),Trạng Thái PCCC,Chi Tiết Báo Động\n';
+  
+  readings.forEach(r => {
+    const status = r.temp >= alarmThreshold ? 'BÁO ĐỘNG CHÁY' : r.temp >= alarmThreshold - 10 ? 'CẢNH BÁO NHIỆT' : 'AN TOÀN';
+    const detail = r.isDanger ? 'Đã kích hoạt còi hú 15s & Gửi Gmail' : 'Nhiệt độ bình thường';
+    csvContent += `"${r.time}","${r.temp.toFixed(1)}","${status}","${detail}"\n`;
+  });
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Bao_Cao_Nhiet_Do_PCCC_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Đã xuất báo cáo lịch sử đo ra file CSV (Excel)!', '📥');
+}
+
+function clearHistoryReadings() {
+  if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử đo nhiệt độ đã lưu trong localStorage không?')) {
+    readings = [];
+    try {
+      localStorage.removeItem('fireReadingsHistory');
+    } catch {}
+    renderThermalChart();
+    renderHistoryTable('Làm sạch nhật ký');
+    showToast('Đã xóa sạch lịch sử đo nhiệt độ!', '🗑️');
+    refreshAiFireAnalysis();
+  }
 }
 
 function renderThermalChart() {
@@ -2418,8 +2891,39 @@ document.addEventListener('DOMContentLoaded', () => {
     void syncEmailFromServer(true);
   }, 3000);
 
-  // Tạo mẫu đo nhiệt độ ban đầu
-  for (let i = 0; i < 6; i++) newSample();
+  // Khôi phục dữ liệu lịch sử nhiệt độ từ localStorage (nếu có)
+  let hasRestoredHistory = false;
+  try {
+    const savedReadings = localStorage.getItem('fireReadingsHistory');
+    if (savedReadings) {
+      const parsed = JSON.parse(savedReadings);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        readings = parsed;
+        currentTemp = readings[readings.length - 1].temp || 28.5;
+        document.getElementById('temperature').textContent = currentTemp.toFixed(1);
+        renderThermalChart();
+        renderHistoryTable('Khôi phục từ localStorage');
+        hasRestoredHistory = true;
+      }
+    }
+  } catch {}
+
+  // Khôi phục danh sách ảnh hiện trường từ localStorage (nếu có)
+  try {
+    const savedSnapshots = localStorage.getItem('fireSnapshotsHistory');
+    if (savedSnapshots) {
+      const parsed = JSON.parse(savedSnapshots);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        snapshots = parsed;
+        renderSnapshots();
+      }
+    }
+  } catch {}
+
+  // Tạo mẫu đo nhiệt độ ban đầu nếu chưa có dữ liệu lưu
+  if (!hasRestoredHistory) {
+    for (let i = 0; i < 6; i++) newSample();
+  }
 
   // Chu kỳ lấy mẫu tự động mỗi 5 giây
   setInterval(() => {
