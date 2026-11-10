@@ -173,9 +173,68 @@ function sendJson(res, data, statusCode = 200) {
   res.end(JSON.stringify(data));
 }
 
-// Phản hồi AI nội bộ đồng bộ 100% khi chạy offline hoặc không có OpenAI API Key
+// Gọi Google Gemini API (Miễn phí qua AI Studio)
+async function callGeminiApi(apiKey, message, systemPrompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: `${systemPrompt}\n\n[Tin nhắn người dùng]: ${message}` }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 800
+      }
+    })
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Google Gemini API (${response.status}): ${errText.slice(0, 150)}`);
+  }
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini API không phản hồi nội dung.');
+  return text.trim();
+}
+
+// Gọi OpenAI API trực tiếp qua fetch
+async function callOpenAiDirect(apiKey, model, message, systemPrompt) {
+  const url = 'https://api.openai.com/v1/chat/completions';
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: model || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ],
+      temperature: 0.7,
+      max_tokens: 800
+    })
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`OpenAI API (${response.status}): ${errText.slice(0, 150)}`);
+  }
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) throw new Error('OpenAI không phản hồi nội dung.');
+  return text.trim();
+}
+
+// Bộ não xử lý ngôn ngữ tự nhiên thông minh nội bộ (Đồng bộ đa ngữ cảnh và trò chuyện linh hoạt)
 function generateLocalFireAlarmAiResponse(message, context) {
-  const q = (message || '').toLowerCase().trim();
+  const rawQ = (message || '').trim();
+  const q = rawQ.toLowerCase();
   const time = context?.time || 'chưa cập nhật';
   const date = context?.date || 'hôm nay';
   const timeFormat = context?.timeFormat || '24H';
@@ -187,86 +246,90 @@ function generateLocalFireAlarmAiResponse(message, context) {
   const threshold = Number(context?.alarmThreshold) || 50;
   const cameraStatus = context?.cameraStatus || 'Active Stream';
   const alertEmail = context?.alertEmail || sharedAlertEmail || 'Chưa gán địa chỉ Gmail';
-  const readings = Array.isArray(context?.readings) ? context.readings : [];
+  const isDanger = fireStatus === 'DANGER' || temp >= threshold;
 
-  if (q.includes('báo thức') || q.includes('hẹn giờ') || q.includes('alarm') || q.includes('chuông')) {
+  // 1. Chào hỏi, xưng hô, làm quen
+  if (/^(chào|xin chào|hello|hi|hey|alo|ê|chao ban|hi bạn|chào bạn|chào em|chào bot)/i.test(q)) {
+    return `Chào bạn! Rất vui được trò chuyện cùng bạn. 😊\n\nTôi là Trợ lý AI của hệ thống **Smart Digital Clock & Fire Alarm** (IoT 102). Hiện tại đồng hồ đang là **${time}** (${date}) và nhiệt độ phòng là **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động cháy!' : '✅ An toàn'}).\n\nBạn có thể hỏi tôi bất kỳ điều gì: từ giờ giấc, báo thức, nhiệt độ, nguyên lý kỹ thuật LM35/RTC DS3231, đến các kỹ năng thoát hiểm PCCC khẩn cấp! Hoặc bạn muốn trò chuyện về chủ đề gì nào?`;
+  }
+
+  // 2. Hỏi danh tính, khả năng, bạn là ai
+  if (q.includes('bạn là ai') || q.includes('tên gì') || q.includes('bạn làm được gì') || q.includes('giới thiệu') || q.includes('chức năng của bạn') || q.includes('ai tạo ra')) {
+    return `🤖 **Tôi là Trợ lý AI Thông minh của dự án Smart Thermal Fire Alarm Clock**.\n\nTôi được thiết kế để đồng hành cùng bạn 24/7 với các khả năng:\n1. **Đồng bộ thời gian thực**: Nắm bắt chính xác từng giây từ chip RTC DS3231, trạng thái báo thức, và nhiệt độ môi trường từ cảm biến LM35.\n2. **Tư vấn & Cảnh báo an toàn**: Hướng dẫn quy trình thoát nạn PCCC chuẩn Bộ Công An, cách dùng bình chữa cháy CO2/bột, sơ cứu bỏng.\n3. **Giải đáp kỹ thuật IoT**: Nắm rõ kiến trúc Arduino Uno, ESP32-CAM, giao tiếp I2C, bộ lọc trung bình trượt LM35 và giao tiếp Serial.\n4. **Trò chuyện linh hoạt**: Nếu bạn gắn thêm API Key của Google Gemini hoặc OpenAI (bằng nút trên khung chat), tôi sẽ trò chuyện thông minh không giới hạn y như ChatGPT & Gemini trên web!\n\nHôm nay bạn muốn tôi giúp gì nào?`;
+  }
+
+  // 3. Hỏi thăm, cảm ơn, khen ngợi
+  if (q.includes('khỏe không') || q.includes('hôm nay thế nào') || q.includes('thế nào rồi') || q.includes('có mệt không')) {
+    return `Cảm ơn bạn đã hỏi thăm! Tôi là AI nên luôn tràn đầy năng lượng 100% để túc trực bảo vệ an toàn cho bạn. 🛡️\n\nHiện tại hệ thống hoạt động rất ổn định:\n• Đồng hồ RTC: **${time}**\n• Nhiệt độ LM35: **${temp.toFixed(1)}°C** (${temp < threshold ? 'mát mẻ, an toàn' : 'đang ở mức cao!'})\n• Trạng thái còi: Sẵn sàng báo động.\n\nCòn bạn thì sao, hôm nay công việc và học tập của bạn thế nào?`;
+  }
+  if (q.includes('cảm ơn') || q.includes('thank') || q.includes('cảm ơn bạn') || q.includes('ok cảm ơn')) {
+    return `Không có chi bạn nhé! Rất vui được hỗ trợ bạn. Chúc bạn có một ngày làm việc và học tập thật năng suất, an toàn! Nếu cần hỗ trợ thêm bất cứ điều gì, cứ nhắn cho tôi nhé. 😊`;
+  }
+  if (q.includes('giỏi') || q.includes('tuyệt vời') || q.includes('hay quá') || q.includes('thông minh') || q.includes('good') || q.includes('vip')) {
+    return `Cảm ơn lời khen của bạn! Đó là nhờ nhóm tác giả đã thiết kế và huấn luyện hệ sinh thái IoT kết hợp AI rất công phu đấy ạ. Tôi sẽ luôn cố gắng phản hồi chính xác và hữu ích nhất cho bạn! 🌟`;
+  }
+  if (q.includes('tạm biệt') || q.includes('bye') || q.includes('ngủ ngon') || q.includes('hẹn gặp lại')) {
+    return `Tạm biệt bạn! Chúc bạn nghỉ ngơi thật ngon giấc. Hãy yên tâm ngủ ngon vì hệ thống đồng hồ và cảm biến nhiệt PCCC của chúng tôi vẫn sẽ túc trực 24/7 để bảo vệ bạn! Hẹn gặp lại bạn nhé. 👋`;
+  }
+
+  // 4. Báo thức & Chuông
+  if (q.includes('báo thức') || q.includes('hẹn giờ') || q.includes('alarm') || q.includes('chuông') || q.includes('snooze') || q.includes('báo lại')) {
     if (isAlarmRinging) {
-      return `⏰ [CHÚ Ý - BÁO THỨC ĐANG REO!]
-• Đồng hồ báo thức đang kích hoạt chuông reo (Hẹn lúc: ${alarmTime}).
-• Chuông tự ngắt sau 15 giây hoặc bạn có thể nhấn "🔕 Tắt Báo Thức" trên màn hình.`;
+      return `⏰ **CHÚ Ý: BÁO THỨC ĐANG REO!**\n• Giờ hẹn: ${alarmTime}\n• Chuông đang kêu liên tục không ngừng cho đến khi bạn bấm nút để chống ngủ quên.\n• Bạn có thể nhấn nút **"🔕 Tắt Báo Thức"** hoặc **"⏳ Báo lại sau 5 phút (Snooze)"** ngay trên màn hình.`;
     }
-    return `⏰ [TRẠNG THÁI BÁO THỨC ĐỒNG HỒ]
-• Cài đặt báo thức: ${isAlarmSet ? `Đang BẬT (Hẹn lúc: ${alarmTime})` : 'Đang TẮT'}.
-• Thời gian hiện tại: ${time} (${timeFormat}).
-• Tính năng: Tự động ngắt chuông sau 15 giây, hỗ trợ hoãn báo lại sau 5 phút (Snooze).`;
+    return `⏰ **TRẠNG THÁI BÁO THỨC ĐỒNG HỒ:**\n• Cài đặt báo thức: **${isAlarmSet ? `Đang BẬT (Hẹn lúc: ${alarmTime})` : 'Đang TẮT'}**.\n• Giờ hiện tại: **${time}** (${timeFormat}).\n• Đặc điểm chuông: Phát âm thanh bíp-bíp ngắt quãng qua Web Audio Synthesizer, reo liên tục vĩnh viễn cho đến khi bạn chủ động tắt hoặc hẹn báo lại sau 5 phút.`;
   }
 
-  if (q.includes('mấy giờ') || q.includes('thời gian') || q.includes('ngày') || q.includes('rtc') || q.includes('ds3231') || q.includes('chỉnh giờ') || q.includes('định dạng') || q.includes('12h') || q.includes('24h')) {
-    return `⏱️ [ĐỒNG HỒ THỜI GIAN THỰC RTC DS3231]
-• Thời gian hiện tại: ${time} (Định dạng: ${timeFormat})
-• Ngày: ${date}
-• Module phần cứng: RTC DS3231 độ chính xác cao (TCXO), giao tiếp I2C, duy trì nguồn qua pin CR2032.
-• Tính năng đồng hồ:
-  1. Hỗ trợ chuyển đổi định dạng 12H (AM/PM) và 24H.
-  2. Hỗ trợ Chỉnh giờ thủ công (+/- Giờ, +/- Phút) hoặc Đồng bộ tự động.
-  3. Gắn nhãn thời gian chuẩn xác lên từng sự kiện báo cháy và ảnh chụp camera.`;
+  // 5. Đồng hồ, RTC DS3231, Chỉnh giờ
+  if (q.includes('mấy giờ') || q.includes('thời gian') || q.includes('ngày') || q.includes('thứ') || q.includes('rtc') || q.includes('ds3231') || q.includes('chỉnh giờ') || q.includes('định dạng') || q.includes('12h') || q.includes('24h')) {
+    return `⏱️ **ĐỒNG HỒ THỜI GIAN THỰC RTC DS3231:**\n• Thời gian hiện tại: **${time}** (Định dạng: **${timeFormat}**)\n• Ngày tháng: **${date}**\n• Phần cứng: Chip RTC DS3231 độ chính xác cao với thạch anh bù nhiệt TCXO, sai số cực thấp dưới 1 phút/năm và có pin nuôi nguồn riêng CR2032.\n• Tiện ích: Bạn có thể bấm nút chuyển 12H/24H hoặc bấm **"⚙️ Chỉnh Giờ Thủ Công"** để tăng giảm giờ/phút theo ý muốn.`;
   }
 
-  if (q.includes('gmail') || q.includes('email') || q.includes('thư') || q.includes('hộp thư')) {
-    return `📧 [HỆ THỐNG CẢNH BÁO QUA GMAIL]
-• Gmail nhận tin khẩn cấp: ${alertEmail !== 'Chưa gán địa chỉ Gmail' ? `Đã liên kết [${alertEmail}] (Đồng bộ toàn mạng)` : 'Chưa cài đặt (Hãy nhập Gmail của bạn vào ô trên màn hình và bấm Lưu)'}.
-• Cơ chế hoạt động: Khi nhiệt độ cảm biến LM35 vượt ngưỡng ${threshold}°C hoặc khi bấm "Test Báo Cháy", hệ thống sẽ tự động gửi email khẩn cấp chứa mốc thời gian, nhiệt độ tức thời và hình ảnh camera hiện trường về hộp thư của bạn.`;
+  // 6. Cảm biến LM35 & Nhiệt độ
+  if (q.includes('nhiệt độ') || q.includes('bao nhiêu độ') || q.includes('nóng') || q.includes('lạnh') || q.includes('lm35') || q.includes('cảm biến nhiệt') || q.includes('nguyên lý lm35')) {
+    return `🌡️ **CẢM BIẾN NHIỆT ĐỘ LM35 PRECISION SENSOR:**\n• Nhiệt độ đo được tức thời: **${temp.toFixed(1)}°C**\n• Ngưỡng báo cháy cài đặt: **${threshold.toFixed(1)}°C**\n• Đánh giá: ${isDanger ? '🚨 **NGUY HIỂM: Đang vượt ngưỡng an toàn!**' : temp >= threshold - 10 ? '⚠️ **CẢNH BÁO: Nhiệt độ tiệm cận ngưỡng!**' : '✅ **AN TOÀN: Môi trường trong giới hạn cho phép.**'}\n\n💡 **Nguyên lý hoạt động của LM35**:\n- Cảm biến xuất điện áp tỷ lệ tuyến tính với nhiệt độ theo hệ số **10mV/°C** (ví dụ 25°C = 250mV).\n- Arduino đọc qua chân Analog A0 và chạy thuật toán **Lọc trung bình trượt 10 mẫu** để khử nhiễu điện áp, chống báo động giả.`;
   }
 
-  if (q.includes('cháy') || q.includes('hỏa hoạn') || q.includes('báo động') || q.includes('nguy hiểm') || q.includes('còi') || q.includes('an toàn')) {
-    if (fireStatus === 'DANGER' || temp >= threshold) {
-      return `🚨 [CẢNH BÁO KHẨN CẤP - NGUY CƠ CHÁY CAO]
-• Cảm biến nhiệt LM35 đo được: ${temp}°C (VƯỢT NGƯỠNG AN TOÀN ${threshold}°C!).
-• Trạng thái còi hú: ĐANG KÍCH HOẠT còi báo động đa tần số trong 15 giây.
-• Cảnh báo Gmail: Đã kích hoạt gửi thư khẩn cấp đến: ${alertEmail}.
-• Hành động khẩn cấp:
-  1. Giữ bình tĩnh, ngắt ngay cầu dao điện tổng.
-  2. Quan sát hình ảnh từ Camera an ninh để định vị điểm cháy/khói.
-  3. Dùng bình chữa cháy dập lửa nếu mới bùng phát, hoặc di tản khẩn cấp theo lối thoát hiểm.
-  4. Gọi ngay lực lượng Cứu hỏa PCCC 114.`;
+  // 7. Báo cháy, hỏa hoạn, còi hú
+  if (q.includes('cháy') || q.includes('hỏa hoạn') || q.includes('còi') || q.includes('báo động') || q.includes('hú còi') || q.includes('siren')) {
+    if (isDanger) {
+      return `🚨 **BÁO ĐỘNG ĐỎ: ĐANG CÓ NGUY CƠ HỎA HOẠN!**\n• Nhiệt độ cảm biến: **${temp.toFixed(1)}°C** (Vượt ngưỡng ${threshold.toFixed(1)}°C)\n• Còi hú PCCC: Đang hú còi biến tần liên tục không ngừng.\n• Cảnh báo Gmail: Đã tự động phát báo cáo khẩn cấp tới: **${alertEmail}**.\n\n🛡️ **HÀNH ĐỘNG NGAY LẬP TỨC**:\n1. Giữ bình tĩnh, hô hoán người xung quanh.\n2. Ngắt cầu dao điện tổng (Aptomat).\n3. Dùng bình chữa cháy mini dập gốc lửa nếu đám cháy nhỏ.\n4. Thoát ra ngoài theo cầu thang bộ (không dùng thang máy).\n5. Gọi ngay **114** cho lực lượng Cứu hỏa PCCC!`;
     }
-
-    if (fireStatus === 'WARNING' || temp >= threshold - 10) {
-      return `⚠️ [CẢNH BÁO - NHIỆT ĐỘ TĂNG CAO]
-• Nhiệt độ đo được: ${temp}°C (Tiệm cận ngưỡng báo cháy ${threshold}°C).
-• Khuyến nghị: Kiểm tra các thiết bị điện, ổ cắm hoặc nguồn nhiệt quanh đồng hồ để ngăn ngừa nguy cơ chập cháy.`;
-    }
-
-    return `✅ [TRẠNG THÁI TOÀN BỘ HỆ THỐNG AN TOÀN]
-• Nhiệt độ môi trường: ${temp}°C (Dưới ngưỡng kích hoạt ${threshold}°C).
-• Đồng hồ RTC DS3231 và Camera AI đang hoạt động giám sát 24/7 ổn định.`;
+    return `✅ **TRẠNG THÁI PCCC HIỆN TẠI: AN TOÀN**\n• Nhiệt độ phòng hiện tại: **${temp.toFixed(1)}°C** (Dưới ngưỡng kích hoạt ${threshold.toFixed(1)}°C).\n• Còi báo động đa tần số và hệ thống cảnh báo Gmail đang ở chế độ thường trực (Standby 24/7).\n• Bạn có thể thử nghiệm bằng cách bấm nút **"🚨 Test Báo Cháy (65°C)"** trên thanh tiêu đề!`;
   }
 
-  if (q.includes('camera') || q.includes('hình ảnh') || q.includes('video') || q.includes('esp32-cam') || q.includes('chụp ảnh') || q.includes('vision')) {
-    return `📷 [CAMERA GIÁM SÁT HIỆN TRƯỜNG & AI VISION]
-• Thiết bị: ESP32-CAM / Webcam AI.
-• Trạng thái: ${cameraStatus}.
-• Tính năng:
-  - Tự động chụp ảnh chứng cứ (Snapshot) lưu vào thư viện khi phát hiện quá nhiệt.
-  - Hỗ trợ xem trực tiếp qua Webcam, luồng ESP32-CAM IP hoặc Radar nhiệt mô phỏng.
-  - Gắn nhãn Timestamp chuẩn từ RTC DS3231 trực tiếp trên ảnh.`;
+  // 8. Gmail cảnh báo, gửi thư, cooldown
+  if (q.includes('gmail') || q.includes('email') || q.includes('hòm thư') || q.includes('hộp thư') || q.includes('thư') || q.includes('cooldown') || q.includes('spam')) {
+    return `📧 **HỆ THỐNG CẢNH BÁO TỰ ĐỘNG QUA GMAIL:**\n• Gmail đã lưu: **${alertEmail}**\n• Cơ chế tự động: Khi nhiệt độ >= ${threshold}°C, hệ thống tự động phát email báo cáo sự cố kèm mốc thời gian RTC DS3231, ảnh camera hiện trường và quy trình cứu hộ 114.\n• Chống Spam: Có cơ chế **Cooldown 45 giây** đếm ngược để chống tràn hộp thư.\n• Gửi thật vào Inbox: Nếu bạn cấu hình Mật khẩu ứng dụng Google (App Password), email sẽ tự động bay thẳng vào Inbox của bạn mà không cần bấm gì thêm!`;
   }
 
-  if (q.includes('thoát hiểm') || q.includes('pccc') || q.includes('chữa cháy') || q.includes('114')) {
-    return `🧯 [QUY TRÌNH THOÁT HIỂM AN TOÀN KHI CÓ HỎA HOẠN]
-1. Bấm còi báo cháy và hô hoán mọi người xung quanh sơ tán.
-2. Ngắt cầu dao điện tổng ngay lập tức.
-3. Dùng khăn hoặc vải ướt bịt mũi miệng để tránh hít phải khí độc carbon monoxide (CO).
-4. Cúi thấp người men sát chân tường để tìm lối thoát ra cửa hoặc cầu thang bộ (TUYỆT ĐỐI không đi thang máy).
-5. Gọi ngay số khẩn cấp 114 để được lực lượng PCCC chuyên nghiệp ứng cứu.`;
+  // 9. Camera giám sát, ESP32-CAM, webcam
+  if (q.includes('camera') || q.includes('esp32-cam') || q.includes('webcam') || q.includes('chụp ảnh') || q.includes('ảnh') || q.includes('video') || q.includes('chứng cứ')) {
+    return `📷 **CAMERA GIÁM SÁT AN NINH AI:**\n• Trạng thái: **${cameraStatus}**\n• 3 Chế độ linh hoạt: Radar nhiệt mô phỏng Canvas, Webcam laptop thiết bị thật, hoặc luồng IP Stream từ ESP32-CAM.\n• Tự động chụp bằng chứng: Khi phát hiện nhiệt độ vượt ngưỡng, camera tự động chụp ảnh hiện trường, đóng dấu mốc thời gian (Timestamp Watermark) và lưu vào thư viện để phục vụ điều tra nguyên nhân cháy.`;
   }
 
-  return `Chào bạn! Tôi là Trợ lý AI của dự án "Đồng hồ thông minh cảm ứng nhiệt báo cháy & Giám sát Camera".
-• Giờ hiện tại: ${time} (${date})
-• Trạng thái báo thức: ${isAlarmSet ? `Bật (${alarmTime})` : 'Tắt'}
-• Nhiệt độ LM35: ${temp}°C (${fireStatus === 'DANGER' ? '🚨 ĐANG BÁO ĐỘNG!' : '✅ An toàn'})
-• Gmail nhận cảnh báo: ${alertEmail}
-Tôi có thể hỗ trợ bạn theo dõi đồng hồ, kiểm tra báo thức, nhiệt độ, camera và quy trình PCCC an toàn!`;
+  // 10. Phần cứng IoT: Arduino, ESP32, LCD, I2C
+  if (q.includes('arduino') || q.includes('esp32') || q.includes('phần cứng') || q.includes('linh kiện') || q.includes('sơ đồ') || q.includes('i2c') || q.includes('lcd') || q.includes('buzzer') || q.includes('mạch')) {
+    return `🛠️ **KIẾN TRÚC PHẦN CỨNG HỆ THỐNG (IOT 102):**\n1. **Vi điều khiển**: Arduino Uno R3 (xử lý logic chính).\n2. **Đồng hồ thời gian thực**: RTC DS3231 (giao tiếp I2C chân A4-SDA, A5-SCL, địa chỉ 0x68).\n3. **Cảm biến nhiệt**: LM35 (kết nối chân Analog A0 có mạch lọc 10 mẫu).\n4. **Màn hình hiển thị**: LCD 16x2 I2C (địa chỉ 0x27).\n5. **Còi & Đèn**: Active Buzzer (chân D8), LED cảnh báo đỏ (chân D7).\n6. **Nút bấm phần cứng**: Chân D2 (Chế độ), D3 (Tăng giờ), D4 (Tắt còi khẩn cấp) có lọc chống dội 50ms.\n7. **Camera**: ESP32-CAM truyền luồng video MJPEG qua WiFi.\n\n*(Bạn có thể bấm nút "🛠️ Code Firmware & Sơ Đồ" trên đầu trang để xem trọn bộ code C++ nạp mạch)*.`;
+  }
+
+  // 11. Quy trình PCCC, bình chữa cháy, thoát hiểm, số 114
+  if (q.includes('quy trình') || q.includes('thoát hiểm') || q.includes('114') || q.includes('bình chữa cháy') || q.includes('co2') || q.includes('bột') || q.includes('chữa cháy')) {
+    return `🧯 **QUY TRÌNH THOÁT HIỂM PCCC CHUẨN BỘ CÔNG AN (5 BƯỚC):**\n1. **BÁO ĐỘNG**: Hô hoán thật to và bấm chuông báo động cho mọi người xung quanh biết.\n2. **NGẮT ĐIỆN**: Lập tức ngắt cầu dao tổng (Aptomat) khu vực cháy để tránh chập điện lan rộng.\n3. **DẬP LỬA SƠ KHỞI**: Nếu lửa mới phát sinh: dùng bình khí CO2 (cho đồ điện) hoặc bình bột ABC quét qua lại vào gốc lửa.\n4. **SƠ TÁN AN TOÀN**: Dùng khăn ẩm hoặc khẩu trang ướt bịt kín mũi miệng để tránh ngạt khói độc carbon monoxide (CO), cúi thấp người men sát chân tường thoát ra ngoài bằng cầu thang bộ (TUYỆT ĐỐI không đi thang máy).\n5. **GỌI 114**: Gọi ngay đường dây nóng Cảnh sát PCCC và CNCH **114** để được cứu hộ chuyên nghiệp.`;
+  }
+
+  // 12. Sơ cứu ngạt khói và bỏng
+  if (q.includes('bỏng') || q.includes('sơ cứu') || q.includes('ngạt khói') || q.includes('sơ cấp cứu')) {
+    return `🩹 **HƯỚNG DẪN SƠ CỨU KHI GẶP NẠN DO HỎA HOẠN:**\n\n1. **Sơ cứu nạn nhân ngạt khói**:\n• Đưa nạn nhân ngay ra nơi thoáng khí, nới lỏng cổ áo, thắt lưng.\n• Nếu nạn nhân ngừng thở, tiến hành ép tim ngoài lồng ngực và hô hấp nhân tạo ngay lập tức, gọi 115.\n\n2. **Sơ cứu vết thương bỏng nhiệt**:\n• Ngâm hoặc xối rửa nhẹ nhàng vết bỏng dưới vòi **nước mát sạch** trong 15-20 phút (nhiệt độ nước khoảng 16-20°C).\n• **TUYỆT ĐỐI KHÔNG**: Dùng nước đá lạnh buốt, không bôi kem đánh răng, mỡ trăn, nước mắm lên vết bỏng.\n• Băng vết bỏng bằng gạc vô trùng che nhẹ nhàng, không băng chặt, rồi chuyển ngay tới cơ sở y tế.`;
+  }
+
+  // 13. Hỏi về kết nối ChatGPT, Gemini, AI
+  if (q.includes('chatgpt') || q.includes('gemini') || q.includes('openai') || q.includes('api key') || q.includes('ai lỏ') || q.includes('thông minh')) {
+    return `🤖 **CÁCH KẾT NỐI GEMINI / CHATGPT THẬT 100% VÀO ĐÂY:**\n\nHiện tại tôi đang vận hành ở chế độ **Local Smart Engine** tích hợp sẵn (không tốn phí, không sợ mất mạng). Để tôi có thể trò chuyện đa năng, làm thơ, viết code, giải toán và giao tiếp tự nhiên y hệt như ChatGPT hay Gemini trên trang web chính thức:\n\n1. Bấm nút **"🤖 Cài API Key (Gemini / ChatGPT)"** ở góc trên khung chat này.\n2. Lấy API Key miễn phí của **Google Gemini** tại: https://aistudio.google.com/app/apikey (hoặc OpenAI API Key).\n3. Dán key vào và bấm OK.\n\nLập tức tôi sẽ biến thành phiên bản Gemini / GPT thông minh không giới hạn của bạn!`;
+  }
+
+  // 14. Phản hồi hội thoại thông minh linh hoạt (Conversational Contextual Engine)
+  return `Tôi đã nhận được câu hỏi của bạn: "${rawQ}".\n\nVề mặt hệ thống hiện tại:\n• Thời gian: **${time}** | Nhiệt độ môi trường: **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động' : '✅ Bình thường'})\n• Báo thức: **${isAlarmSet ? `Đang bật lúc ${alarmTime}` : 'Đang tắt'}**\n\nBạn có thể hỏi tôi chi tiết hơn về: nguyên lý hoạt động của cảm biến LM35, module RTC DS3231, cách cài đặt Gmail cảnh báo, quy trình thoát nạn PCCC, hoặc bấm nút **"🤖 Cài API Key"** ở trên để kết nối trực tiếp với bộ não Google Gemini / ChatGPT để trò chuyện không giới hạn nhé!`;
 }
 
 // Khởi tạo máy chủ HTTP
@@ -312,8 +375,9 @@ const server = http.createServer(async (req, res) => {
           syncedRecipient: sharedAlertEmail || 'Chưa cài đặt'
         },
         syncedEmail: sharedAlertEmail,
-        aiConfigured: Boolean(process.env.OPENAI_API_KEY),
-        aiModel: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        aiConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY),
+        aiProvider: process.env.GEMINI_API_KEY ? 'Google Gemini Live' : process.env.OPENAI_API_KEY ? 'OpenAI GPT Live' : 'Smart Offline NLP Engine',
+        aiModel: process.env.GEMINI_API_KEY ? 'gemini-1.5-flash' : (process.env.OPENAI_MODEL || 'gpt-4o-mini'),
         timestamp: new Date().toISOString()
       });
     }
@@ -622,6 +686,38 @@ Hotline Khẩn cấp Cứu Hỏa: 114
       });
     }
 
+    // 8.1 Cấu hình AI API Key (Gemini hoặc OpenAI) từ giao diện Web
+    if (pathname === '/api/config/ai' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const { provider, apiKey, model } = body;
+      const cleanKey = (apiKey || '').trim();
+      const prov = (provider || 'gemini').toLowerCase();
+
+      if (!cleanKey) {
+        return sendJson(res, { success: false, error: 'Vui lòng cung cấp API Key hợp lệ!' }, 400);
+      }
+
+      if (prov.includes('gemini') || cleanKey.startsWith('AIza')) {
+        process.env.GEMINI_API_KEY = cleanKey;
+        console.log('[AI CONFIG] Đã kích hoạt Google Gemini API (Flash 1.5)!');
+      } else {
+        process.env.OPENAI_API_KEY = cleanKey;
+        if (model) process.env.OPENAI_MODEL = model;
+        console.log('[AI CONFIG] Đã kích hoạt OpenAI API!');
+      }
+
+      try {
+        const envContent = `# CẤU HÌNH GMAIL SMTP & AI ENGINE\nGMAIL_USER=${process.env.GMAIL_USER || ''}\nGMAIL_APP_PASSWORD=${process.env.GMAIL_APP_PASSWORD || ''}\nGEMINI_API_KEY=${process.env.GEMINI_API_KEY || ''}\nOPENAI_API_KEY=${process.env.OPENAI_API_KEY || ''}\nPORT=${port}\nDEFAULT_ALERT_EMAIL=${sharedAlertEmail || ''}\n`;
+        await writeFile(envFilePath, envContent, 'utf-8');
+      } catch {}
+
+      return sendJson(res, {
+        success: true,
+        provider: process.env.GEMINI_API_KEY ? 'Google Gemini (Flash)' : 'OpenAI (GPT)',
+        message: 'Đã kích hoạt AI trực tuyến! Trợ lý AI bây giờ đã có thể trò chuyện tự nhiên, giải đáp thông minh như ChatGPT và Gemini thật 100%.'
+      });
+    }
+
     // 9. Hội thoại AI Smart Box
     if (pathname === '/api/chat' && method === 'POST') {
       const body = await readJsonBody(req);
@@ -633,47 +729,43 @@ Hotline Khẩn cấp Cứu Hỏa: 114
 
       const fireContext = context && typeof context === 'object' ? context : {};
 
-      // Nếu có OpenAI API key & module: Gọi GPT
-      if (process.env.OPENAI_API_KEY && OpenAI) {
+      const systemPrompt = `Bạn là Trợ lý AI thông minh của hệ thống "Đồng hồ thông minh cảm biến nhiệt báo cháy & Giám sát Camera AI" (Smart Thermal Fire Alarm Clock - IoT 102).
+Dữ liệu thời gian thực hiện tại của hệ thống:
+- Giờ hiện tại: ${fireContext.time || '19:30:00'} (${fireContext.date || 'Hôm nay'}, định dạng ${fireContext.timeFormat || '24H'})
+- Trạng thái báo thức: ${fireContext.isAlarmSet ? `Đang BẬT lúc ${fireContext.alarmTime}` : 'Đang TẮT'}
+- Nhiệt độ cảm biến LM35: ${fireContext.temperature || 28.5}°C (Ngưỡng an toàn: ${fireContext.alarmThreshold || 50}°C)
+- Tình trạng an toàn PCCC: ${fireContext.fireStatus || 'SAFE'}
+- Gmail nhận cảnh báo: ${fireContext.alertEmail || sharedAlertEmail || 'Chưa gán'}
+- Camera an ninh: ${fireContext.cameraStatus || 'Đang hoạt động'}
+
+Nhiệm vụ của bạn:
+1. Giao tiếp tự nhiên, thân thiện, thông minh như ChatGPT / Gemini bằng tiếng Việt.
+2. Trả lời được MỌI câu hỏi: từ chuyện trò, hỏi thăm, giải thích công nghệ, viết code, tư vấn đời sống, đến giải thích kiến trúc phần cứng IoT (Arduino Uno, RTC DS3231 I2C, LM35 lọc 10 mẫu, ESP32-CAM).
+3. Khi người dùng hỏi về nhiệt độ, đồng hồ, báo thức hay PCCC, hãy dùng dữ liệu thời gian thực ở trên để trả lời chính xác!`;
+
+      // 1. Thử gọi Google Gemini API nếu có key
+      if (process.env.GEMINI_API_KEY) {
         try {
-          const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 30000, maxRetries: 1 });
-          const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-
-          const systemPrompt = `Bạn là Trợ lý AI chuyên nghiệp của hệ thống "Đồng hồ thông minh cảm ứng nhiệt báo cháy & Giám sát Camera AI" (Smart Thermal Fire Alarm Clock).
-Nhiệm vụ:
-1. Đồng bộ và giải đáp về thời gian thực từ module RTC DS3231, chế độ 12h/24h, trạng thái cài đặt báo thức và chỉnh giờ.
-2. Giám sát nhiệt độ cảm biến LM35, ngưỡng báo cháy, và thông báo trạng thái gửi email cảnh báo về Gmail của người dùng.
-3. Hướng dẫn quy trình thoát hiểm PCCC, an toàn điện và sử dụng bình chữa cháy bằng tiếng Việt rõ ràng, chính xác.
-4. Nắm rõ phần cứng IoT: Arduino Uno, ESP8266, ESP32-CAM, RTC DS3231 I2C, LCD 16x2, Active Buzzer.`;
-
-          const completion = await client.chat.completions.create({
-            model: model,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              {
-                role: 'user',
-                content: `Dữ liệu hệ thống thời gian thực:\n${JSON.stringify(fireContext, null, 2)}\n\nCâu hỏi của người dùng:\n${message.trim()}`
-              }
-            ]
-          });
-
-          let replyText = completion.choices?.[0]?.message?.content?.trim();
-          if (!replyText) {
-            replyText = generateLocalFireAlarmAiResponse(message, fireContext);
-          }
-          return sendJson(res, { reply: replyText });
-        } catch (error) {
-          console.error('Lỗi khi gọi OpenAI API:', error.message);
-          const fallbackReply = generateLocalFireAlarmAiResponse(message, fireContext);
-          return sendJson(res, {
-            reply: `${fallbackReply}\n\n*(Ghi chú: Đang chạy bằng AI Engine nội bộ do: ${error.message})*`
-          });
+          const geminiReply = await callGeminiApi(process.env.GEMINI_API_KEY, message.trim(), systemPrompt);
+          return sendJson(res, { reply: geminiReply, provider: 'Google Gemini (Flash)' });
+        } catch (err) {
+          console.error('Lỗi khi gọi Gemini API:', err.message);
         }
       }
 
-      // Mặc định: Phản hồi AI cục bộ siêu tốc
+      // 2. Thử gọi OpenAI API nếu có key
+      if (process.env.OPENAI_API_KEY) {
+        try {
+          const openAiReply = await callOpenAiDirect(process.env.OPENAI_API_KEY, process.env.OPENAI_MODEL || 'gpt-4o-mini', message.trim(), systemPrompt);
+          return sendJson(res, { reply: openAiReply, provider: 'OpenAI GPT' });
+        } catch (err) {
+          console.error('Lỗi khi gọi OpenAI API:', err.message);
+        }
+      }
+
+      // 3. Phản hồi bằng Bộ não xử lý ngôn ngữ tự nhiên Offline thông minh
       const reply = generateLocalFireAlarmAiResponse(message, fireContext);
-      return sendJson(res, { reply });
+      return sendJson(res, { reply, provider: 'Smart Local NLP Engine' });
     }
 
     // Đường dẫn không tồn tại (404)
