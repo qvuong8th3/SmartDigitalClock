@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Thermal Fire Alarm & Safety System | IoT Dashboard</title>
+<title>Hệ Thống Cảnh Báo & Giám Sát Hỏa Hoạn Thông Minh | IoT Dashboard</title>
 <style>
 * { box-sizing: border-box; }
 :root {
@@ -34,12 +34,12 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: var(--text-main);
   background: var(--bg-main);
-  line-height: 1.4;
-  font-size: 12.5px;
+  line-height: 1.45;
+  font-size: 13px;
 }
 
 /* =========================================================
-   COMPACT STICKY HEADER & TOP MENU BAR
+   THANH TIÊU ĐỀ & MENU ĐIỀU HƯỚNG CỐ ĐỊNH (STICKY)
    ========================================================= */
 header.app-header {
   background: var(--surface);
@@ -64,39 +64,39 @@ header.app-header.fire-alert-active {
 .header-top-row {
   max-width: 1540px;
   margin: auto;
-  padding: 6px 16px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
 }
-.brand { display: flex; align-items: center; gap: 9px; }
+.brand { display: flex; align-items: center; gap: 10px; }
 .logo {
   background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
   color: white;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 20px;
   box-shadow: 0 2px 7px rgba(239, 68, 68, 0.35);
   flex-shrink: 0;
 }
-.brand-title-wrap { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-h1 { margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; letter-spacing: -0.2px; text-transform: uppercase; }
-.sub { color: var(--text-muted); font-size: 10.5px; margin-top: 1px; }
+.brand-title-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 15.5px; font-weight: 800; color: #0f172a; letter-spacing: -0.2px; }
+.sub { color: var(--text-muted); font-size: 11px; margin-top: 1px; }
 
 .system-status-pill {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 10px;
+  padding: 2px 8px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
 }
 .system-status-pill.safe { background: var(--safe-bg); color: #065f46; border: 1px solid #a7f3d0; }
 .system-status-pill.warning { background: var(--warning-bg); color: #92400e; border: 1px solid #fde68a; }
@@ -111,7 +111,7 @@ h1 { margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; letter-spacin
   50% { opacity: 0.85; transform: scale(1.04); }
 }
 
-.header-actions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.header-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
 .header-telemetry-badge {
   display: inline-flex;
@@ -119,22 +119,22 @@ h1 { margin: 0; font-size: 15px; font-weight: 800; color: #0f172a; letter-spacin
   gap: 4px;
   background: #f8fafc;
   border: 1px solid var(--border);
-  padding: 3px 8px;
-  border-radius: 5px;
-  font-size: 11.5px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 12px;
   color: #334155;
 }
 .header-telemetry-badge strong { color: #ea580c; font-weight: 800; }
 
 button {
-  padding: 5px 10px;
+  padding: 6px 11px;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--primary);
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 11.5px;
+  font-size: 12px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -167,7 +167,7 @@ button.btn-success {
 }
 button.btn-success:hover { background: #a7f3d0; }
 
-/* NAVIGATION MENU BAR */
+/* THANH CỘT MENU Ở ĐẦU TRANG */
 .top-nav-menu {
   background: #f8fafc;
   border-top: 1px solid var(--border-subtle);
@@ -194,11 +194,11 @@ button.btn-success:hover { background: #a7f3d0; }
 .nav-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  gap: 5px;
+  padding: 6px 11px;
   color: #475569;
   text-decoration: none;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   border-radius: 5px;
   transition: all 0.15s ease;
@@ -212,7 +212,7 @@ button.btn-success:hover { background: #a7f3d0; }
   background: #0284c7;
   color: #ffffff;
 }
-.nav-icon { font-size: 12px; }
+.nav-icon { font-size: 13px; }
 
 .nav-right-controls {
   display: flex;
@@ -221,14 +221,14 @@ button.btn-success:hover { background: #a7f3d0; }
   flex-shrink: 0;
 }
 .nav-status-hint {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   color: #10b981;
   white-space: nowrap;
 }
 .nav-quick-btn {
-  padding: 3px 7px;
-  font-size: 10.5px;
+  padding: 3px 8px;
+  font-size: 11px;
   background: white;
   border: 1px solid #cbd5e1;
   color: #334155;
@@ -237,7 +237,7 @@ button.btn-success:hover { background: #a7f3d0; }
 .nav-quick-btn:hover { background: #f1f5f9; }
 
 /* =========================================================
-   MAIN CONTENT & EMERGENCY BANNERS
+   NỘI DUNG CHÍNH & BANNERS
    ========================================================= */
 main {
   padding: 10px 16px 20px;
@@ -286,7 +286,7 @@ main {
   100% { transform: translateY(-2px); }
 }
 
-.alarm-banner-text { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; }
+.alarm-banner-text { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; }
 .alarm-banner-icon { font-size: 20px; flex-shrink: 0; }
 
 .toast-msg {
@@ -298,7 +298,7 @@ main {
   color: white;
   padding: 8px 14px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 12.5px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   display: flex;
   align-items: center;
@@ -314,7 +314,7 @@ main {
 }
 
 /* =========================================================
-   OVERVIEW CARDS (4 KPI TILES)
+   THẺ TỔNG QUAN (4 THẺ KPI CHUẨN)
    ========================================================= */
 .cards {
   display: grid;
@@ -330,10 +330,10 @@ main {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 .card-top { display: flex; justify-content: space-between; align-items: center; }
-.metric { font-size: 22px; font-weight: 850; margin: 4px 0 2px; letter-spacing: -0.4px; }
+.metric { font-size: 23px; font-weight: 850; margin: 4px 0 2px; letter-spacing: -0.4px; }
 .muted { color: var(--text-muted); font-size: 11px; }
 .eyebrow {
-  font-size: 9px;
+  font-size: 9.5px;
   letter-spacing: 1.1px;
   color: var(--text-muted);
   font-weight: 700;
@@ -360,7 +360,7 @@ main {
 }
 
 /* =========================================================
-   MAIN 2-COLUMN LAYOUT
+   LAYOUT 2 CỘT CHÍNH
    ========================================================= */
 .layout {
   display: grid;
@@ -369,7 +369,7 @@ main {
   margin-bottom: 12px;
 }
 
-/* Panel Left: System Chrono & Alert Settings */
+/* Cột Trái: Đồng hồ & Cài đặt */
 .clock-box {
   background: linear-gradient(135deg, #f8fafc 0%, #edf4fc 100%);
   border: 1px solid #dce8f5;
@@ -381,7 +381,7 @@ main {
   overflow: hidden;
 }
 .clock {
-  font-size: clamp(26px, 2.8vw, 34px);
+  font-size: clamp(26px, 2.8vw, 36px);
   font-weight: 850;
   color: var(--primary);
   letter-spacing: 1.5px;
@@ -391,7 +391,7 @@ main {
 }
 .clock.danger-state { color: var(--danger); animation: pulseDanger 1s infinite; }
 @keyframes pulseDanger { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
-.date { color: var(--text-muted); font-size: 11px; }
+.date { color: var(--text-muted); font-size: 11.5px; }
 
 .clock-tools {
   display: flex;
@@ -417,7 +417,7 @@ main {
 .manual-adjust-bar.active { display: flex; }
 .manual-adjust-bar button { padding: 3px 6px; font-size: 10.5px; }
 
-/* Alert / Patrol Timer Box */
+/* Hộp Báo Thức / Hẹn Giờ */
 .alarm-config-box {
   background: #fdfbf7;
   border: 1px solid #f6e5c8;
@@ -444,7 +444,7 @@ main {
   padding: 4px 8px;
   border: 1px solid #d7e2ee;
   border-radius: 5px;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #0f172a;
 }
@@ -457,7 +457,7 @@ main {
 .alarm-status-pill.on { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
 .alarm-status-pill.off { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
 
-/* Emergency Gmail Dispatch Box */
+/* Hộp Cấu Hình Gmail Cảnh Báo */
 .gmail-config-box {
   background: #fef2f2;
   border: 1px solid #fecaca;
@@ -523,7 +523,7 @@ main {
   margin-top: 1px;
 }
 
-/* Panel Right: Thermal Monitoring & AI Camera */
+/* Cột Phải: Cảm biến LM35 & Camera */
 .camera-viewport {
   position: relative;
   width: 100%;
@@ -676,7 +676,7 @@ input[type=range] {
 }
 
 /* =========================================================
-   HISTORY & INCIDENT LOGS
+   LỊCH SỬ & BIỂU ĐỒ NHIỆT ĐỘ
    ========================================================= */
 .history-section {
   display: grid;
@@ -740,7 +740,7 @@ th {
 }
 
 /* =========================================================
-   AI FIRE SAFETY SMART BOX
+   AI SMART BOX
    ========================================================= */
 .ai-box-section { margin-bottom: 14px; }
 .ai-box-panel {
@@ -1037,14 +1037,14 @@ footer {
 </head>
 <body>
 
-<!-- System Toast -->
+<!-- Toast thông báo -->
 <div class="toast-msg" id="toastMsg">
   <span id="toastIcon">ℹ️</span>
-  <span id="toastText">System Notification</span>
+  <span id="toastText">Thông báo hệ thống</span>
 </div>
 
 <!-- =========================================================
-     STICKY HEADER & NAVIGATION MENU
+     STICKY HEADER & MENU ĐẦU TRANG
      ========================================================= -->
 <header class="app-header">
   <div class="header-top-row">
@@ -1052,143 +1052,143 @@ footer {
       <div class="logo">🔥</div>
       <div>
         <div class="brand-title-wrap">
-          <h1>SMART THERMAL FIRE ALARM & DETECTION SYSTEM</h1>
-          <span class="system-status-pill safe" id="navFireBadge">● SYSTEM NORMAL</span>
+          <h1>HỆ THỐNG CẢNH BÁO & GIÁM SÁT HỎA HOẠN THÔNG MINH</h1>
+          <span class="system-status-pill safe" id="navFireBadge">● AN TOÀN</span>
         </div>
-        <div class="sub">LM35 Precision Thermal Sensing · RTC DS3231 Chrono Sync · AI Vision & Gmail Incident Dispatch (IoT 102)</div>
+        <div class="sub">Cảm biến nhiệt LM35 · Module thời gian thực RTC DS3231 · Camera AI & Cảnh báo Gmail (IoT 102)</div>
       </div>
     </div>
 
     <div class="header-actions">
       <div class="header-telemetry-badge">
-        <span>LM35 Temp:</span>
+        <span>Nhiệt độ LM35:</span>
         <strong><span id="hudTempTextMini">28.5</span>°C</strong>
       </div>
       <button type="button" id="hardwareModalBtn" onclick="openHardwareModal()" style="background:#0f172a; color:#38bdf8; border:1px solid #0284c7;">
-        🛠️ Code & Pinout
+        🛠️ Code & Sơ Đồ
       </button>
       <button type="button" id="serialConnectBtn" onclick="toggleWebSerialConnection()" style="background:#0284c7; color:white; border:1px solid #0284c7;">
-        📡 Web Serial USB
+        📡 Kết Nối Serial USB
       </button>
       <button type="button" id="sirenToggleBtn" onclick="toggleSirenMute()">
-        <span id="sirenIcon">🔊</span> <span id="sirenStatus">Siren: Standby</span>
+        <span id="sirenIcon">🔊</span> <span id="sirenStatus">Còi: Sẵn sàng</span>
       </button>
       <button type="button" class="btn-danger" onclick="triggerSimulatedFire()">
-        🚨 Fire Test (65°C)
+        🚨 Test Báo Cháy (65°C)
       </button>
-      <button type="button" class="btn-success" onclick="resetFireAlarm()" title="Reset system to safe standby">
-        ↺ Reset Safe
+      <button type="button" class="btn-success" onclick="resetFireAlarm()" title="Đưa hệ thống về trạng thái an toàn">
+        ↺ Đặt Lại An Toàn
       </button>
     </div>
   </div>
 
-  <!-- TOP NAVIGATION MENU BAR -->
+  <!-- THANH CỘT MENU Ở ĐẦU TRANG -->
   <nav class="top-nav-menu" id="topNavMenu">
     <div class="nav-container">
       <div class="nav-links">
         <a href="#overviewSection" class="nav-link active" onclick="setActiveNav(this)">
-          <span class="nav-icon">📊</span> Overview & Telemetry
+          <span class="nav-icon">📊</span> Tổng Quan & Trạng Thái
         </a>
         <a href="#clockSection" class="nav-link" onclick="setActiveNav(this)">
-          <span class="nav-icon">⏱️</span> Chrono & Fire Timer
+          <span class="nav-icon">⏱️</span> Đồng Hồ RTC & Hẹn Giờ
         </a>
         <a href="#cameraSection" class="nav-link" onclick="setActiveNav(this)">
-          <span class="nav-icon">♨</span> Thermal & AI Vision
+          <span class="nav-icon">♨</span> Giám Sát Nhiệt & Camera AI
         </a>
         <a href="#historySection" class="nav-link" onclick="setActiveNav(this)">
-          <span class="nav-icon">📈</span> Analytics & Logs
+          <span class="nav-icon">📈</span> Biểu Đồ & Nhật Ký
         </a>
         <a href="#aiBoxSection" class="nav-link" onclick="setActiveNav(this)">
-          <span class="nav-icon">✦</span> AI Safety Assistant
+          <span class="nav-icon">✦</span> Trợ Lý AI Báo Cháy
         </a>
       </div>
       <div class="nav-right-controls">
-        <span class="nav-status-hint" id="navEmergencyHint">System Status: Standby & Secure</span>
-        <button type="button" class="nav-quick-btn" id="modeBtn" onclick="toggleSystemMode()">◉ System Mode</button>
-        <button type="button" class="nav-quick-btn" onclick="openHardwareModal()">🛠️ Pinout Sơ Đồ</button>
+        <span class="nav-status-hint" id="navEmergencyHint">Trạng thái: An toàn & Ổn định</span>
+        <button type="button" class="nav-quick-btn" id="modeBtn" onclick="toggleSystemMode()">◉ Chế độ Hệ thống</button>
+        <button type="button" class="nav-quick-btn" onclick="openHardwareModal()">🛠️ Sơ Đồ Pinout</button>
       </div>
     </div>
   </nav>
 </header>
 
 <main>
-  <!-- CRITICAL FIRE ALARM BANNER -->
+  <!-- BANNER BÁO CHÁY KHẨN CẤP -->
   <div class="fire-alarm-banner" id="fireAlarmBanner">
     <div class="alarm-banner-text">
       <span class="alarm-banner-icon">🚨</span>
       <div>
-        <div style="font-size:14px;">CRITICAL FIRE ALARM TRIGGERED! (CẢNH BÁO BÁO CHÁY TỰ ĐỘNG)</div>
-        <div style="font-weight:400; font-size:11.5px;" id="alarmBannerDetail">LM35 sensor temperature exceeded safety threshold! Active siren sounding and emergency incident report dispatched to Gmail.</div>
+        <div style="font-size:14px;">CẢNH BÁO BÁO CHÁY TỰ ĐỘNG KÍCH HOẠT!</div>
+        <div style="font-weight:400; font-size:11.5px;" id="alarmBannerDetail">Nhiệt độ cảm biến LM35 vượt ngưỡng an toàn! Còi báo động đang kêu và hệ thống đã gửi cảnh báo tới Gmail.</div>
       </div>
     </div>
     <div style="display:flex; gap:5px; flex-wrap:wrap;">
       <button type="button" class="btn-primary" onclick="openPreFilledGmail()" style="background:white; color:#b91c1c; border-color:white; padding:4px 9px;">
-        📧 Open Gmail Alert
+        📧 Mở Gmail Kiểm Tra
       </button>
       <button type="button" class="btn-primary" onclick="resetFireAlarm()" style="background:#b91c1c; color:white; border-color:white; padding:4px 9px;">
-        🔕 Silence & Reset
+        🔕 Tắt Báo Động & Đặt Lại
       </button>
     </div>
   </div>
 
-  <!-- SCHEDULED PATROL / ALARM BANNER -->
+  <!-- BANNER BÁO THỨC ĐẾN GIỜ -->
   <div class="clock-alarm-banner" id="clockAlarmBanner">
     <div class="alarm-banner-text">
       <span class="alarm-banner-icon">⏰</span>
       <div>
-        <div style="font-size:14px;">PATROL TIMER / ALARM ALERT!</div>
-        <div style="font-weight:400; font-size:11.5px;" id="clockAlarmBannerDetail">RTC DS3231 scheduled safety patrol alarm is sounding.</div>
+        <div style="font-size:14px;">ĐÃ ĐẾN GIỜ BÁO THỨC / TUẦN TRA!</div>
+        <div style="font-weight:400; font-size:11.5px;" id="clockAlarmBannerDetail">Báo thức đồng hồ số RTC DS3231 đang kêu. Chúc bạn một ngày làm việc hiệu quả!</div>
       </div>
     </div>
     <div style="display:flex; gap:5px;">
       <button type="button" onclick="snoozeClockAlarm()" style="background:white; color:#6366f1; border-color:white; padding:4px 9px;">
-        ⏳ Snooze (5m)
+        ⏳ Báo lại sau 5 phút
       </button>
       <button type="button" onclick="dismissClockAlarm()" style="background:#4338ca; color:white; border-color:white; padding:4px 9px;">
-        🔕 Dismiss
+        🔕 Tắt Báo Thức
       </button>
     </div>
   </div>
 
-  <!-- OVERVIEW CARDS (4 KPI TILES) -->
+  <!-- CARDS OVERVIEW (4 THẺ KPI CHUẨN) -->
   <section class="cards" id="overviewSection">
-    <!-- Card 1: System Chronometer -->
+    <!-- Card 1: Đồng hồ số RTC -->
     <article class="card">
       <div class="card-top">
-        <span class="muted">System Chronometer</span>
+        <span class="muted">Đồng Hồ Thời Gian Thực</span>
         <span class="blue">⏱️</span>
       </div>
       <div class="metric blue" id="topTime">--:--:--</div>
-      <div class="muted">RTC DS3231 · I2C TCXO Accuracy</div>
+      <div class="muted">Module DS3231 · I2C TCXO Accuracy</div>
     </article>
 
-    <!-- Card 2: Patrol Timer Status -->
+    <!-- Card 2: Trạng thái báo thức -->
     <article class="card">
       <div class="card-top">
-        <span class="muted">Patrol Timer Status</span>
+        <span class="muted">Trạng Thái Hẹn Giờ</span>
         <span class="purple">⏰</span>
       </div>
       <div class="metric purple" id="topAlarmStatus">TẮT</div>
       <div class="muted" id="topAlarmSub">Chưa đặt giờ hẹn báo thức</div>
     </article>
 
-    <!-- Card 3: LM35 Thermal Sensor -->
+    <!-- Card 3: Cảm biến nhiệt LM35 -->
     <article class="card">
       <div class="card-top">
-        <span class="muted">LM35 Thermal Sensor</span>
+        <span class="muted">Cảm Biến Nhiệt LM35</span>
         <span class="orange">♨</span>
       </div>
       <div class="metric orange"><span id="temperature">28.5</span>°C</div>
-      <div class="muted">Alert Threshold: <strong id="topThreshold">50.0°C</strong></div>
+      <div class="muted">Ngưỡng báo động: <strong id="topThreshold">50.0°C</strong></div>
       <div class="thermal-gauge">
         <div class="thermal-gauge-fill" id="thermalGaugeFill"></div>
       </div>
     </article>
 
-    <!-- Card 4: Fire Dispatch & Gmail -->
+    <!-- Card 4: PCCC & Báo Về Gmail -->
     <article class="card" id="fireStatusCard">
       <div class="card-top">
-        <span class="muted">Fire Dispatch & Gmail</span>
+        <span class="muted">Báo Động Cháy & Gmail</span>
         <span id="fireIconBadge" class="green">●</span>
       </div>
       <div class="metric green" id="fireStatusText">AN TOÀN</div>
@@ -1196,23 +1196,23 @@ footer {
     </article>
   </section>
 
-  <!-- MAIN 2-COLUMN LAYOUT -->
+  <!-- LAYOUT 2 CỘT CHÍNH -->
   <section class="layout">
-    <!-- LEFT COLUMN: CHRONOMETER, FIRE PATROL TIMER & GMAIL DISPATCH -->
+    <!-- CỘT TRÁI: ĐỒNG HỒ SỐ RTC DS3231, BÁO THỨC & GMAIL CẢNH BÁO -->
     <article class="panel" id="clockSection">
-      <div class="eyebrow">CHRONO HARDWARE & EMERGENCY TIMER</div>
-      <h3 style="margin: 3px 0 8px; font-size:14px;">System Chronometer & Alert Settings</h3>
+      <div class="eyebrow">SMART DIGITAL CLOCK HARDWARE & ALARM</div>
+      <h3 style="margin: 3px 0 8px; font-size:14px;">Đồng Hồ Thời Gian Thực & Trung Tâm Cài Đặt</h3>
 
-      <!-- Digital Chronometer Display -->
+      <!-- Khung hiển thị đồng hồ số chính -->
       <div class="clock-box" id="clockBox">
-        <div class="eyebrow" id="rtcHeaderTitle">RTC DS3231 REAL-TIME CHRONO (I2C)</div>
+        <div class="eyebrow" id="rtcHeaderTitle">RTC DS3231 REAL-TIME CLOCK (I2C)</div>
         <div class="clock" id="clock">--:--:--</div>
-        <div class="date" id="date">Synchronizing timestamp...</div>
+        <div class="date" id="date">Đang đồng bộ thời gian...</div>
 
-        <!-- 12H / 24H Toggle & Manual Calibration -->
+        <!-- Chế độ 12H/24H và Chỉnh giờ thủ công -->
         <div class="clock-tools">
           <div>
-            <span>Format: </span>
+            <span>Định dạng: </span>
             <button type="button" id="formatToggleBtn" onclick="toggleTimeFormat()" style="padding:2px 6px; font-size:10.5px;">
               24 Giờ (Chuyển 12H)
             </button>
@@ -1224,7 +1224,7 @@ footer {
           </div>
         </div>
 
-        <!-- Manual Adjust Bar -->
+        <!-- Thanh chỉnh giờ thủ công -->
         <div class="manual-adjust-bar" id="manualAdjustBar">
           <span style="font-weight:700; color:#0284c7; font-size:10.5px;">Chỉnh tay:</span>
           <button type="button" onclick="adjustTime(1, 0)">+1 Giờ</button>
@@ -1235,10 +1235,10 @@ footer {
         </div>
       </div>
 
-      <!-- Scheduled Fire Patrol / Timer Box -->
+      <!-- Khối cài đặt báo thức / hẹn giờ -->
       <div class="alarm-config-box">
         <div class="alarm-config-top">
-          <span>⏰ Scheduled Patrol / Incident Timer</span>
+          <span>⏰ Cài Đặt Giờ Hẹn Báo Thức / Tuần Tra</span>
           <span class="alarm-status-pill off" id="alarmStatusBadge">TẮT</span>
         </div>
         <div class="alarm-inputs">
@@ -1251,18 +1251,18 @@ footer {
           </button>
         </div>
         <div style="font-size:10.5px; color:#78350f; margin-top:5px;" id="alarmNoteText">
-          • Triggers active buzzer when scheduled time matches DS3231 chronometer.
+          • Khi đến giờ hẹn, chuông báo thức ngắt quãng (Bíp-bíp) sẽ tự động reo trên còi buzzer và giao diện.
         </div>
       </div>
 
-      <!-- Emergency Gmail Dispatch Box -->
+      <!-- Khối gán Gmail nhận cảnh báo cháy -->
       <div class="gmail-config-box">
         <div class="gmail-config-top">
-          <span>📧 Emergency Gmail Dispatch Configuration</span>
+          <span>📧 Gán Địa Chỉ Gmail Nhận Cảnh Báo Khi Cháy</span>
           <span style="font-size:10.5px; font-weight:normal; color:#b91c1c;" id="gmailAlertStatus">Chưa gửi email nào</span>
         </div>
         <div class="gmail-input-group">
-          <input type="email" class="gmail-input" id="alertEmailInput" placeholder="Enter emergency Gmail for fire alerts...">
+          <input type="email" class="gmail-input" id="alertEmailInput" placeholder="Nhập địa chỉ Gmail của bạn (vd: your_email@gmail.com)">
           <button type="button" class="btn-danger" onclick="saveAlertEmail()">
             💾 Lưu Gmail
           </button>
@@ -1274,24 +1274,24 @@ footer {
           </button>
         </div>
         <div class="gmail-badge" id="gmailBadgeText">
-          <span>ℹ️</span> <span>Automatically dispatches incident reports with time, temperature, and snapshot.</span>
+          <span>ℹ️</span> <span>Khi nhiệt độ vượt ngưỡng hoặc có báo động cháy, hệ thống sẽ tự động gửi email khẩn cấp chứa thời gian, nhiệt độ và ảnh hiện trường về Gmail này.</span>
         </div>
       </div>
 
-      <!-- Hardware Components Spec -->
+      <!-- Thông số linh kiện phần cứng -->
       <div class="details">
-        <div class="detail">CHRONO MODULE<strong id="rtcModule">DS3231 · I2C TCXO (CR2032)</strong></div>
-        <div class="detail">THERMAL SENSOR<strong id="sensorModule">LM35 Precision Sensor</strong></div>
-        <div class="detail">EMERGENCY BUZZER<strong id="buzzerState">Active Buzzer (Standby)</strong></div>
-        <div class="detail">DEBOUNCE FILTER<strong id="debounceState">50ms Debounce Filtered</strong></div>
+        <div class="detail">MODULE ĐỒNG HỒ<strong id="rtcModule">DS3231 · I2C TCXO (CR2032)</strong></div>
+        <div class="detail">CẢM BIẾN NHIỆT ĐỘ<strong id="sensorModule">LM35 Precision Sensor</strong></div>
+        <div class="detail">CÒI BÁO ĐỘNG BUZZER<strong id="buzzerState">Active Buzzer (Standby)</strong></div>
+        <div class="detail">CHỐNG DỘI PHÍM<strong id="debounceState">50ms Debounce Filtered</strong></div>
       </div>
     </article>
 
-    <!-- RIGHT COLUMN: THERMAL SENSING & AI VISION CAMERA -->
+    <!-- CỘT PHẢI: GIÁM SÁT NHIỆT ĐỘ LM35 & CAMERA AI -->
     <article class="panel" id="cameraSection">
-      <div class="eyebrow">ENVIRONMENT SENSING & AI VISION</div>
+      <div class="eyebrow">ENVIRONMENT SENSING & AI CAMERA</div>
       <div class="card-top" style="margin-top:2px;">
-        <h3 style="margin: 3px 0 8px; font-size:14px;">Thermal Monitoring & AI Camera</h3>
+        <h3 style="margin: 3px 0 8px; font-size:14px;">Cảm Biến Nhiệt LM35 & Camera AI</h3>
         <select class="camera-mode-select" id="cameraSourceSelect" onchange="changeCameraSource(this.value)" style="padding:2.5px 6px; border-radius:4px; border:1px solid #cbd5e1; font-size:11px;">
           <option value="sim">Radar Nhiệt Mô Phỏng</option>
           <option value="webcam">Webcam Thiết Bị Thật</option>
@@ -1299,7 +1299,7 @@ footer {
         </select>
       </div>
 
-      <!-- Camera Viewport & HUD -->
+      <!-- Khung Viewport Video & HUD an ninh -->
       <div class="camera-viewport" id="cameraViewport">
         <canvas id="simCanvas" width="640" height="360"></canvas>
         <video id="cameraFeed" autoplay playsinline muted style="display:none;"></video>
@@ -1322,7 +1322,7 @@ footer {
         </div>
       </div>
 
-      <!-- Camera Toolbar -->
+      <!-- Thanh công cụ điều khiển camera -->
       <div class="camera-toolbar">
         <div style="display:flex; gap:5px;">
           <button type="button" class="btn-primary" onclick="captureSnapshot()">
@@ -1337,10 +1337,10 @@ footer {
         </div>
       </div>
 
-      <!-- Snapshot Gallery -->
+      <!-- Thư viện ảnh snapshot bằng chứng -->
       <div class="snapshot-gallery">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
-          <div style="font-size:11px; font-weight:700; color:#334155;">📸 Evidence Snapshots (Tự chụp khi có hỏa hoạn)</div>
+          <div style="font-size:11px; font-weight:700; color:#334155;">📸 Nhật Ký Ảnh Hiện Trường (Tự chụp khi có cháy)</div>
           <button type="button" class="btn-danger" onclick="clearAllSnapshots()" style="font-size:10px; padding:2px 5px;" id="clearSnapshotsBtn">
             🗑️ Xóa Tất Cả Ảnh
           </button>
@@ -1350,7 +1350,7 @@ footer {
         </div>
       </div>
 
-      <!-- Threshold Controller -->
+      <!-- Điều chỉnh ngưỡng nhiệt độ báo cháy -->
       <div class="threshold-controller">
         <div class="threshold-top">
           <span>⚙️ Ngưỡng nhiệt độ kích hoạt còi báo cháy & gửi Gmail:</span>
@@ -1364,7 +1364,7 @@ footer {
         </div>
       </div>
 
-      <!-- Quick Actions -->
+      <!-- Nút hành động test nhiệt & còi báo cháy -->
       <div class="thermal-actions">
         <button type="button" onclick="newSample()">+ Mẫu nhiệt mới</button>
         <button type="button" onclick="testFireSirenAudio()">🔊 Thử Còi Báo Cháy</button>
@@ -1374,11 +1374,11 @@ footer {
     </article>
   </section>
 
-  <!-- HISTORY & INCIDENT LOGS -->
+  <!-- BIỂU ĐỒ NHIỆT ĐỘ & NHẬT KÝ SỰ KIỆN PCCC -->
   <section class="history-section" id="historySection">
     <article class="panel">
-      <div class="eyebrow">REAL-TIME THERMAL TELEMETRY</div>
-      <h3 style="margin: 3px 0 6px; font-size:14px;">Continuous Temperature Chart (LM35)</h3>
+      <div class="eyebrow">DỮ LIỆU ĐO NHIỆT ĐỘ LIÊN TỤC</div>
+      <h3 style="margin: 3px 0 6px; font-size:14px;">Biểu Đồ Nhiệt Độ Môi Trường (LM35)</h3>
       <div class="muted">Theo dõi xu hướng biến thiên nhiệt độ thời gian thực</div>
       <div class="chart-box" id="chartBox"></div>
       <div class="legend">
@@ -1389,14 +1389,14 @@ footer {
     </article>
 
     <article class="panel">
-      <div class="eyebrow">INCIDENT LOGS & DISPATCH AUDIT</div>
+      <div class="eyebrow">NHẬT KÝ BIẾN CỐ & CẢNH BÁO GMAIL (TỰ LƯU LOCALSTORAGE)</div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin: 3px 0 6px;">
-        <h3 style="margin: 0; font-size:14px;">Fire Incident & Alarm Logs</h3>
+        <h3 style="margin: 0; font-size:14px;">Nhật Ký Cảnh Báo Sự Cố</h3>
         <div style="display:flex; gap:4px;">
-          <button type="button" onclick="exportHistoryCsv()" style="font-size:10.5px; padding:2.5px 6px; background:#0284c7; color:white; border:none; border-radius:3px; cursor:pointer;" title="Export history to CSV">
+          <button type="button" onclick="exportHistoryCsv()" style="font-size:10.5px; padding:2.5px 6px; background:#0284c7; color:white; border:none; border-radius:3px; cursor:pointer;" title="Xuất lịch sử ra file Excel/CSV">
             📥 Xuất CSV
           </button>
-          <button type="button" onclick="clearHistoryReadings()" style="font-size:10.5px; padding:2.5px 6px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:3px; cursor:pointer;" title="Clear incident history">
+          <button type="button" onclick="clearHistoryReadings()" style="font-size:10.5px; padding:2.5px 6px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:3px; cursor:pointer;" title="Làm sạch nhật ký đo">
             🗑️ Xóa Lịch Sử
           </button>
         </div>
@@ -1405,10 +1405,10 @@ footer {
         <table>
           <thead>
             <tr>
-              <th>TIMESTAMP</th>
-              <th>TEMPERATURE</th>
-              <th>SAFETY STATUS</th>
-              <th>GMAIL DISPATCH</th>
+              <th>THỜI GIAN</th>
+              <th>NHIỆT ĐỘ</th>
+              <th>TRẠNG THÁI</th>
+              <th>CẢNH BÁO GMAIL</th>
             </tr>
           </thead>
           <tbody id="fireHistoryTable"></tbody>
@@ -1417,21 +1417,21 @@ footer {
     </article>
   </section>
 
-  <!-- AI FIRE SAFETY ASSISTANT & SMART BOX -->
+  <!-- AI SMART BOX - TRỢ LÝ ĐỒNG HỒ & BÁO CHÁY THÔNG MINH -->
   <section class="ai-box-section" id="aiBoxSection">
     <article class="panel ai-box-panel" id="aiBoxPanel">
       <div class="ai-box-header">
         <div class="ai-header-left">
           <div class="ai-badge-icon">✦</div>
           <div>
-            <div class="eyebrow">INTELLIGENT FIRE SAFETY & TIME ENGINE</div>
-            <h3 class="ai-box-title">AI Fire Safety Assistant & Diagnostics</h3>
+            <div class="eyebrow">INTELLIGENT TIME & FIRE SAFETY ASSISTANT</div>
+            <h3 class="ai-box-title">AI Smart Box - Trợ Lý Đồng Hồ & Báo Cháy Thông Minh</h3>
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:5px;">
           <div class="ai-status-indicator">
             <span class="ai-status-dot"></span>
-            <span id="aiStatusText">AI Online 24/7 (Real-time Sync)</span>
+            <span id="aiStatusText">AI Sẵn sàng 24/7 (Đồng bộ tức thời)</span>
           </div>
           <button type="button" onclick="refreshAiFireAnalysis()" style="font-size:10.5px; padding:3px 7px;">
             ↻ Chẩn đoán lại
@@ -1440,11 +1440,11 @@ footer {
       </div>
 
       <div class="ai-box-grid">
-        <!-- Left: Diagnostic Overview -->
+        <!-- Cột trái: Chẩn đoán an toàn -->
         <div class="ai-diag-col">
           <div class="ai-insight-card">
             <div class="ai-insight-top">
-              <span class="ai-insight-tag">⚡ REAL-TIME SYSTEM DIAGNOSTICS</span>
+              <span class="ai-insight-tag">⚡ PHÂN TÍCH HỆ THỐNG THỜI GIAN THỰC</span>
               <span class="muted" style="font-size:10px;" id="aiInsightTime">Vừa xong</span>
             </div>
             <div class="ai-insight-body" id="aiInsightSummary">
@@ -1457,19 +1457,19 @@ footer {
 
           <div class="ai-diag-metrics">
             <div class="ai-metric-item">
-              <div class="ai-metric-label">Patrol Timer</div>
+              <div class="ai-metric-label">Trạng thái Báo thức</div>
               <div class="ai-metric-val" id="aiAlarmVal" style="color:#8b5cf6;">Đang Tắt</div>
             </div>
             <div class="ai-metric-item">
-              <div class="ai-metric-label">Fire Risk Level</div>
+              <div class="ai-metric-label">Mức độ rủi ro PCCC</div>
               <div class="ai-metric-val" id="aiRiskVal" style="color:#10b981;">An toàn (Safe)</div>
             </div>
             <div class="ai-metric-item">
-              <div class="ai-metric-label">Gmail Dispatch</div>
+              <div class="ai-metric-label">Liên kết Gmail Cảnh báo</div>
               <div class="ai-metric-val" id="aiGmailVal" style="color:#0284c7; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Chưa gán</div>
             </div>
             <div class="ai-metric-item">
-              <div class="ai-metric-label">AI Engine Model</div>
+              <div class="ai-metric-label">Mô hình AI vận hành</div>
               <div class="ai-metric-val" id="aiModelVal" style="color:#6366f1;">Smart Sync Engine</div>
             </div>
           </div>
@@ -1482,10 +1482,10 @@ footer {
           </div>
         </div>
 
-        <!-- Right: AI Chatbot Column -->
+        <!-- Cột phải: Khung hội thoại AI -->
         <div class="ai-chat-col">
           <div class="ai-chat-header">
-            <div><span>✦</span> AI Fire Safety Chatbot</div>
+            <div><span>✦</span> Hội thoại với Trợ lý AI</div>
             <div style="display:flex; gap:4px;">
               <button type="button" onclick="configureAiKey()" style="padding:2px 5px; font-size:10px; background:#4f46e5; color:white; border-color:#4f46e5; border-radius:3px; font-weight:700;">
                 🤖 Cài API Key
@@ -1495,7 +1495,7 @@ footer {
           </div>
 
           <div class="ai-messages" id="aiMessages" role="log" aria-live="polite">
-            <div class="ai-msg assistant">Xin chào! Tôi là Trợ lý AI của dự án "Đồng hồ thông minh cảm ứng nhiệt báo cháy & Giám sát Camera".
+            <div class="ai-msg assistant">Xin chào! Tôi là Trợ lý AI của dự án "Hệ thống cảnh báo hỏa hoạn & Giám sát Camera".
 Tôi luôn đồng bộ theo thời gian thực với đồng hồ RTC DS3231, trạng thái báo thức, cảm biến nhiệt LM35 và Gmail nhận cảnh báo của bạn. Bạn muốn tôi hỗ trợ gì?</div>
           </div>
 
@@ -1508,7 +1508,7 @@ Tôi luôn đồng bộ theo thời gian thực với đồng hồ RTC DS3231, t
             </div>
           </div>
 
-          <!-- Quick Chips -->
+          <!-- Gợi ý câu hỏi nhanh -->
           <div class="ai-quick-chips">
             <button type="button" class="ai-chip" onclick="askAiQuestion('Kiểm tra giờ hiện tại, định dạng và trạng thái báo thức')">⏱️ Giờ & Báo thức</button>
             <button type="button" class="ai-chip" onclick="askAiQuestion('Nhiệt độ hiện tại bao nhiêu và Gmail cảnh báo đã cài chưa?')">📧 Gmail & Nhiệt độ</button>
@@ -1516,9 +1516,9 @@ Tôi luôn đồng bộ theo thời gian thực với đồng hồ RTC DS3231, t
             <button type="button" class="ai-chip" onclick="askAiQuestion('Kiến trúc phần cứng của hệ thống gồm những linh kiện gì?')">🛠️ Linh kiện phần cứng</button>
           </div>
 
-          <!-- Question Input Form -->
+          <!-- Form gửi câu hỏi -->
           <form class="ai-form" id="aiForm">
-            <input type="text" class="ai-input" id="aiInput" placeholder="Ask AI about fire safety, LM35 temperature, emergency procedures..." autocomplete="off" required>
+            <input type="text" class="ai-input" id="aiInput" placeholder="Hỏi AI về giờ giấc, báo thức, Gmail cảnh báo, nhiệt độ LM35..." autocomplete="off" required>
             <button type="submit" class="ai-send-btn" id="aiSendBtn">Gửi ➤</button>
           </form>
         </div>
@@ -1528,39 +1528,39 @@ Tôi luôn đồng bộ theo thời gian thực với đồng hồ RTC DS3231, t
 </main>
 
 <footer>
-  Smart Thermal Fire Alarm & Safety System · RTC DS3231 Chrono · LM35 Temperature Sensor · Gmail Incident Dispatch & AI Vision · IoT 102
+  Hệ Thống Cảnh Báo & Giám Sát Hỏa Hoạn Thông Minh · Đồng hồ RTC DS3231 · Cảm biến nhiệt LM35 · Báo động Gmail & Camera AI · IoT 102
 </footer>
 
-<!-- Hardware & Pinout Modal -->
+<!-- Modal Thư viện Firmware & Sơ đồ phần cứng -->
 <div class="modal-backdrop" id="hardwareModal">
   <div class="modal-window">
     <div class="modal-header">
       <div style="font-weight:700; font-size:13px; display:flex; align-items:center; gap:7px;">
-        <span>🛠️</span> Fire Alarm Firmware Library & Hardware Pinout (IoT 102)
+        <span>🛠️</span> Thư Viện Code Firmware & Sơ Đồ Đấu Nối Pinout (IoT 102)
       </div>
       <button type="button" onclick="closeHardwareModal()" style="background:transparent; border:none; color:white; font-size:16px; cursor:pointer;">✕</button>
     </div>
     <div class="modal-tabs">
       <button type="button" class="modal-tab-btn active" id="tabBtnArduino" onclick="switchHardwareTab('arduino')">Arduino Uno (C++)</button>
       <button type="button" class="modal-tab-btn" id="tabBtnEsp32" onclick="switchHardwareTab('esp32')">ESP32-CAM (Stream)</button>
-      <button type="button" class="modal-tab-btn" id="tabBtnPinout" onclick="switchHardwareTab('pinout')">Hardware Pinout Connections</button>
+      <button type="button" class="modal-tab-btn" id="tabBtnPinout" onclick="switchHardwareTab('pinout')">Sơ Đồ Đấu Nối Pinout</button>
     </div>
     <div class="modal-body" id="modalContentArduino">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <strong>Arduino Uno R3 Source: RTC DS3231 + LM35 + LCD 16x2 + Web Serial (115200 bps)</strong>
+        <strong>Mã nguồn Arduino Uno R3: RTC DS3231 + LM35 + LCD 16x2 + Web Serial (115200 bps)</strong>
         <button type="button" class="btn-primary" onclick="copyArduinoCode()" style="font-size:10.5px; padding:3px 8px;">📋 Sao Chép Mã</button>
       </div>
       <pre class="code-preview-box" id="arduinoCodeSnippet"></pre>
     </div>
     <div class="modal-body" id="modalContentEsp32" style="display:none;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <strong>ESP32-CAM Source: MJPEG Live Video Stream & WiFi Telemetry</strong>
+        <strong>Mã nguồn ESP32-CAM: Phát luồng video MJPEG & Gửi dữ liệu qua WiFi</strong>
         <button type="button" class="btn-primary" onclick="copyEsp32Code()" style="font-size:10.5px; padding:3px 8px;">📋 Sao Chép Mã</button>
       </div>
       <pre class="code-preview-box" id="esp32CodeSnippet"></pre>
     </div>
     <div class="modal-body" id="modalContentPinout" style="display:none;">
-      <h4 style="margin: 0 0 8px;">Hardware Pinout Connections</h4>
+      <h4 style="margin: 0 0 8px;">Bảng Sơ Đồ Đấu Nối Dây (Pinout Connections)</h4>
       <table style="width:100%; border-collapse:collapse; font-size:12px;">
         <thead>
           <tr style="background:#f1f5f9; text-align:left;">
@@ -1582,7 +1582,6 @@ Tôi luôn đồng bộ theo thời gian thực với đồng hồ RTC DS3231, t
     </div>
   </div>
 </div>
-
 <script>
 // =========================================================
 // MÃ NGUỒN FIRMWARE ARDUINO & ESP32-CAM CHO MODAL
@@ -2981,50 +2980,55 @@ async function sendAiQuestion(msg) {
     readings: readings.map(r => ({ time: r.time, temperature: r.temp }))
   };
 
-  let reply = '';
-  let answered = false;
-
-  const clientApiKey = localStorage.getItem('userAiApiKey');
-  const clientProvider = localStorage.getItem('userAiProvider') || 'gemini';
-
-  // 1. Nếu đang có backend server Node.js chạy, gọi API backend
   try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: question, context: contextData })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.reply) {
-        reply = data.reply;
-        answered = true;
-      }
-    }
-  } catch {}
+    let reply = '';
+    let answered = false;
 
-  // 2. Nếu chạy trên GitHub Pages (hoặc server chưa cấu hình key), gọi trực tiếp Gemini/OpenAI bằng key đã lưu
-  if (!answered && clientApiKey) {
+    const clientApiKey = localStorage.getItem('userAiApiKey');
+    const clientProvider = localStorage.getItem('userAiProvider') || 'gemini';
+
+    // 1. Nếu có server Node.js chạy, gọi backend
     try {
-      if (clientProvider === 'gemini' || clientApiKey.startsWith('AIza')) {
-        reply = await callClientSideGemini(clientApiKey, question, contextData);
-        answered = true;
-      } else {
-        reply = await callClientSideOpenAi(clientApiKey, question, contextData);
-        answered = true;
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: question, context: contextData })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.reply) {
+          reply = data.reply;
+          answered = true;
+        }
       }
-    } catch (err) {
-      console.warn('Lỗi gọi API trực tiếp:', err);
-      showToast('⚠️ Lỗi API: ' + err.message, '⚠️', 5000);
+    } catch {}
+
+    // 2. Nếu không có backend, gọi trực tiếp Gemini / OpenAI bằng key
+    if (!answered && clientApiKey) {
+      try {
+        if (clientProvider === 'gemini' || clientApiKey.startsWith('AIza')) {
+          reply = await callClientSideGemini(clientApiKey, question, contextData);
+          answered = true;
+        } else {
+          reply = await callClientSideOpenAi(clientApiKey, question, contextData);
+          answered = true;
+        }
+      } catch (err) {
+        console.warn('Lỗi gọi API trực tiếp:', err);
+        showToast('⚠️ Lỗi API: ' + err.message, '⚠️', 5000);
+      }
     }
-  }
 
-  // 3. Fallback: Nếu chưa cài key, trả lời bằng logic cục bộ
-  if (!answered) {
-    reply = getClientSideFireResponse(question, contextData);
-  }
+    // 3. Fallback cục bộ
+    if (!answered) {
+      reply = getClientSideFireResponse(question, contextData);
+    }
 
-  addAiMessage(reply, 'assistant'); finally {
+    addAiMessage(reply, 'assistant');
+  } catch (err) {
+    console.error('Lỗi xử lý câu hỏi:', err);
+    addAiMessage('Đã có lỗi xảy ra khi xử lý phản hồi.', 'assistant');
+  } finally {
     if (input) {
       input.disabled = false;
       input.value = '';
@@ -3035,7 +3039,6 @@ async function sendAiQuestion(msg) {
   }
 }
 
-// Bộ máy phản hồi AI nội bộ đồng bộ 100% khi chạy offline hoặc không có API Key
 function getClientSideFireResponse(message, ctx) {
   const rawQ = (message || '').trim();
   const q = rawQ.toLowerCase();
@@ -3052,7 +3055,7 @@ function getClientSideFireResponse(message, ctx) {
   const isDanger = fireStatus === 'DANGER' || temp >= threshold;
 
   // 1. Người dùng xin phép hỏi / mở lời bắt chuyện
-  if (/^(tôi|em|mình|cho tôi|cho em|có thể|hỏi|hỏi bạn)?.*(hỏi|hỏi vài câu|hỏi một câu|hỏi tí|giúp|nhờ).*(được không|được ko|dc ko|ko bạn|không bạn|nhé|nha|ạ|?|$)/i.test(q) ||
+  if (/^(tôi|em|mình|cho tôi|cho em|có thể|hỏi|hỏi bạn)?.*(hỏi|hỏi vài câu|hỏi một câu|hỏi tí|giúp|nhờ).*(được không|được ko|dc ko|ko bạn|không bạn|nhé|nha|ạ|\\?|$)/i.test(q) ||
       q.includes('hỏi vài câu') || q.includes('hỏi bạn vài câu') || q.includes('cho tôi hỏi') || q.includes('giúp tôi với') || q.includes('hỏi một chút')) {
     return `Tất nhiên rồi bạn ơi! Rất sẵn lòng. 😊\n\nBạn cứ thoải mái hỏi bất cứ điều gì nhé! Tôi có thể giải đáp cho bạn về:\n• Tình trạng đồng hồ RTC DS3231 và báo thức hiện tại.\n• Nhiệt độ đo từ cảm biến LM35 và mức độ an toàn PCCC.\n• Cách cấu hình nhận cảnh báo khẩn cấp qua Gmail.\n• Hoặc giải thích kiến trúc mạch Arduino, ESP32-CAM và code nạp.\n\nBạn đang muốn hỏi tôi điều gì nào?`;
   }
@@ -3393,11 +3396,5 @@ window.addEventListener('scroll', () => {
   }
 }, { passive: true });
 </script>
-</body>
-</html>
-
-</body>
-</html>
-
 </body>
 </html>
