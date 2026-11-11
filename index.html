@@ -3061,88 +3061,82 @@ function getClientSideFireResponse(message, ctx) {
   const alertEmail = ctx?.alertEmail || userAlertEmail || 'Chưa gán địa chỉ Gmail';
   const isDanger = fireStatus === 'DANGER' || temp >= threshold;
 
-  // 1. Chào hỏi, xưng hô, làm quen
-  if (/^(chào|xin chào|hello|hi|hey|alo|ê|chao ban|hi bạn|chào bạn|chào em|chào bot)/i.test(q)) {
-    return `Chào bạn! Rất vui được trò chuyện cùng bạn. 😊\n\nTôi là Trợ lý AI của hệ thống **Smart Digital Clock & Fire Alarm** (IoT 102). Hiện tại đồng hồ đang là **${time}** (${date}) và nhiệt độ phòng là **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động cháy!' : '✅ An toàn'}).\n\nBạn có thể hỏi tôi bất kỳ điều gì: từ giờ giấc, báo thức, nhiệt độ, nguyên lý kỹ thuật LM35/RTC DS3231, đến các kỹ năng thoát hiểm PCCC khẩn cấp! Hoặc bạn muốn trò chuyện về chủ đề gì nào?`;
+  // 1. Người dùng xin phép hỏi / mở lời bắt chuyện
+  if (/^(tôi|em|mình|cho tôi|cho em|có thể|hỏi|hỏi bạn)?.*(hỏi|hỏi vài câu|hỏi một câu|hỏi tí|giúp|nhờ).*(được không|được ko|dc ko|ko bạn|không bạn|nhé|nha|ạ|?|$)/i.test(q) ||
+      q.includes('hỏi vài câu') || q.includes('hỏi bạn vài câu') || q.includes('cho tôi hỏi') || q.includes('giúp tôi với') || q.includes('hỏi một chút')) {
+    return `Tất nhiên rồi bạn ơi! Rất sẵn lòng. 😊\n\nBạn cứ thoải mái hỏi bất cứ điều gì nhé! Tôi có thể giải đáp cho bạn về:\n• Tình trạng đồng hồ RTC DS3231 và báo thức hiện tại.\n• Nhiệt độ đo từ cảm biến LM35 và mức độ an toàn PCCC.\n• Cách cấu hình nhận cảnh báo khẩn cấp qua Gmail.\n• Hoặc giải thích kiến trúc mạch Arduino, ESP32-CAM và code nạp.\n\nBạn đang muốn hỏi tôi điều gì nào?`;
   }
 
-  // 2. Hỏi danh tính, khả năng, bạn là ai
-  if (q.includes('bạn là ai') || q.includes('tên gì') || q.includes('bạn làm được gì') || q.includes('giới thiệu') || q.includes('chức năng của bạn') || q.includes('ai tạo ra')) {
-    return `🤖 **Tôi là Trợ lý AI Thông minh của dự án Smart Thermal Fire Alarm Clock**.\n\nTôi được thiết kế để đồng hành cùng bạn 24/7 với các khả năng:\n1. **Đồng bộ thời gian thực**: Nắm bắt chính xác từng giây từ chip RTC DS3231, trạng thái báo thức, và nhiệt độ môi trường từ cảm biến LM35.\n2. **Tư vấn & Cảnh báo an toàn**: Hướng dẫn quy trình thoát nạn PCCC chuẩn Bộ Công An, cách dùng bình chữa cháy CO2/bột, sơ cứu bỏng.\n3. **Giải đáp kỹ thuật IoT**: Nắm rõ kiến trúc Arduino Uno, ESP32-CAM, giao tiếp I2C, bộ lọc trung bình trượt LM35 và giao tiếp Serial.\n4. **Trò chuyện linh hoạt**: Nếu bạn gắn thêm API Key của Google Gemini hoặc OpenAI (bằng nút trên khung chat), tôi sẽ trò chuyện thông minh không giới hạn y như ChatGPT & Gemini trên web!\n\nHôm nay bạn muốn tôi giúp gì nào?`;
+  // 2. Chào hỏi, xưng hô, gọi tên bot
+  if (/^(chào|xin chào|hello|hi|hey|alo|ê|chao ban|hi bạn|chào bạn|chào em|chào bot|bot ơi|ai ơi|ơi|bạn ơi|có ai không|có ai ở đây)/i.test(q)) {
+    return `Dạ có tôi đây! Chào bạn nhé. Rất vui được trò chuyện cùng bạn! 👋\n\nTôi là Trợ lý AI của hệ thống **Smart Fire Clock & Camera** (IoT 102). Hiện tại đồng hồ đang là **${time}** và nhiệt độ phòng đo được là **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động cháy!' : '✅ An toàn'}).\n\nBạn có điều gì cần tôi hỗ trợ hay muốn trò chuyện cùng tôi nào?`;
   }
 
   // 3. Hỏi thăm, cảm ơn, khen ngợi
-  if (q.includes('khỏe không') || q.includes('hôm nay thế nào') || q.includes('thế nào rồi') || q.includes('có mệt không')) {
-    return `Cảm ơn bạn đã hỏi thăm! Tôi là AI nên luôn tràn đầy năng lượng 100% để túc trực bảo vệ an toàn cho bạn. 🛡️\n\nHiện tại hệ thống hoạt động rất ổn định:\n• Đồng hồ RTC: **${time}**\n• Nhiệt độ LM35: **${temp.toFixed(1)}°C** (${temp < threshold ? 'mát mẻ, an toàn' : 'đang ở mức cao!'})\n• Trạng thái còi: Sẵn sàng báo động.\n\nCòn bạn thì sao, hôm nay công việc và học tập của bạn thế nào?`;
+  if (q.includes('khỏe không') || q.includes('hôm nay thế nào') || q.includes('thế nào rồi') || q.includes('có mệt không') || q.includes('sao rồi')) {
+    return `Cảm ơn bạn đã quan tâm nhé! Tôi là AI nên luôn đầy ắp 100% năng lượng để túc trực canh chừng an toàn cho bạn 24/7. 🛡️\n\nHệ thống hiện đang vận hành rất tốt:\n• Thời gian RTC: **${time}**\n• Nhiệt độ LM35: **${temp.toFixed(1)}°C** (${temp < threshold ? 'mát mẻ, an toàn' : 'tiệm cận mức nóng!'})\n• Trạng thái còi hú: Sẵn sàng bảo vệ.\n\nCòn bạn thì sao? Ngày hôm nay của bạn có vui và thuận lợi không?`;
   }
-  if (q.includes('cảm ơn') || q.includes('thank') || q.includes('cảm ơn bạn') || q.includes('ok cảm ơn')) {
-    return `Không có chi bạn nhé! Rất vui được hỗ trợ bạn. Chúc bạn có một ngày làm việc và học tập thật năng suất, an toàn! Nếu cần hỗ trợ thêm bất cứ điều gì, cứ nhắn cho tôi nhé. 😊`;
+  if (q.includes('cảm ơn') || q.includes('thank') || q.includes('ok cảm ơn') || q.includes('cảm ơn bot')) {
+    return `Không có chi bạn ơi! Được hỗ trợ bạn là niềm vui của tôi mà. Chúc bạn có một ngày thật nhiều niềm vui và làm việc hiệu quả nhé! Cần gì bạn cứ gọi tôi tiếp nhé. 😊`;
   }
-  if (q.includes('giỏi') || q.includes('tuyệt vời') || q.includes('hay quá') || q.includes('thông minh') || q.includes('good') || q.includes('vip')) {
-    return `Cảm ơn lời khen của bạn! Đó là nhờ nhóm tác giả đã thiết kế và huấn luyện hệ sinh thái IoT kết hợp AI rất công phu đấy ạ. Tôi sẽ luôn cố gắng phản hồi chính xác và hữu ích nhất cho bạn! 🌟`;
+  if (q.includes('giỏi') || q.includes('tuyệt vời') || q.includes('hay quá') || q.includes('thông minh') || q.includes('good') || q.includes('vip') || q.includes('đỉnh')) {
+    return `Hihi cảm ơn lời khen của bạn nhiều nhé! 🌟 Tôi luôn cố gắng cập nhật dữ liệu và đồng hành cùng bạn tốt nhất có thể đấy ạ!`;
   }
-  if (q.includes('tạm biệt') || q.includes('bye') || q.includes('ngủ ngon') || q.includes('hẹn gặp lại')) {
-    return `Tạm biệt bạn! Chúc bạn nghỉ ngơi thật ngon giấc. Hãy yên tâm ngủ ngon vì hệ thống đồng hồ và cảm biến nhiệt PCCC của chúng tôi vẫn sẽ túc trực 24/7 để bảo vệ bạn! Hẹn gặp lại bạn nhé. 👋`;
-  }
-
-  // 4. Báo thức
-  if (q.includes('báo thức') || q.includes('hẹn giờ') || q.includes('alarm') || q.includes('chuông') || q.includes('snooze') || q.includes('báo lại')) {
-    if (isAlarmRinging) {
-      return `⏰ **CHÚ Ý: BÁO THỨC ĐANG REO!**\n• Giờ hẹn: ${alarmTime}\n• Chuông đang kêu liên tục không ngừng cho đến khi bạn bấm nút để chống ngủ quên.\n• Bạn có thể nhấn nút **"🔕 Tắt Báo Thức"** hoặc **"⏳ Báo lại sau 5 phút (Snooze)"** ngay trên màn hình.`;
-    }
-    return `⏰ **TRẠNG THÁI BÁO THỨC ĐỒNG HỒ:**\n• Cài đặt báo thức: **${isAlarmSet ? `Đang BẬT (Hẹn lúc: ${alarmTime})` : 'Đang TẮT'}**.\n• Giờ hiện tại: **${time}** (${timeFormat}).\n• Đặc điểm chuông: Phát âm thanh bíp-bíp ngắt quãng qua Web Audio Synthesizer, reo liên tục vĩnh viễn cho đến khi bạn chủ động tắt hoặc hẹn báo lại sau 5 phút.`;
+  if (q.includes('tạm biệt') || q.includes('bye') || q.includes('ngủ ngon') || q.includes('hẹn gặp lại') || q.includes('đi ngủ')) {
+    return `Tạm biệt bạn nhé! Chúc bạn có một giấc ngủ thật ngon và những giấc mơ đẹp. Đừng lo lắng vì hệ thống đồng hồ và cảm biến nhiệt PCCC vẫn sẽ luôn túc trực để giữ an toàn cho bạn. Hẹn gặp lại bạn mai nhé! 👋`;
   }
 
-  // 5. Đồng hồ, RTC DS3231, Chỉnh giờ
-  if (q.includes('mấy giờ') || q.includes('thời gian') || q.includes('ngày') || q.includes('thứ') || q.includes('rtc') || q.includes('ds3231') || q.includes('chỉnh giờ') || q.includes('định dạng') || q.includes('12h') || q.includes('24h')) {
-    return `⏱️ **ĐỒNG HỒ THỜI GIAN THỰC RTC DS3231:**\n• Thời gian hiện tại: **${time}** (Định dạng: **${timeFormat}**)\n• Ngày tháng: **${date}**\n• Phần cứng: Chip RTC DS3231 độ chính xác cao với thạch anh bù nhiệt TCXO, sai số cực thấp dưới 1 phút/năm và có pin nuôi nguồn riêng CR2032.\n• Tiện ích: Bạn có thể bấm nút chuyển 12H/24H hoặc bấm **"⚙️ Chỉnh Giờ Thủ Công"** để tăng giảm giờ/phút theo ý muốn.`;
+  // 4. Tâm sự, cảm xúc, giải trí
+  if (q.includes('buồn') || q.includes('chán') || q.includes('mệt') || q.includes('stress') || q.includes('áp lực')) {
+    return `Đừng buồn hay căng thẳng quá nhé bạn ơi! Cuộc sống đôi khi có những lúc khó khăn, nhưng hãy tin rằng mọi chuyện rồi sẽ ổn thôi. Bạn hãy thử tạm gác công việc lại một lát, uống một cốc nước mát và hít thở thật sâu nhé. Nếu muốn tâm sự gì, tôi luôn ở đây lắng nghe bạn này! 💙`;
+  }
+  if (q.includes('kể chuyện') || q.includes('chuyện cười') || q.includes('đố vui') || q.includes('hài')) {
+    const jokes = [
+      "Có một câu đố vui nè: Con cá nào không bao giờ biết bơi?\nĐáp án: Là cáp mạng WiFi đó bạn! 😂",
+      "Tại sao con chuột máy tính lại không sợ mèo?\nĐáp án: Vì nó kết nối bằng cổng USB chứ không ăn thóc! 🐭",
+      "Một lập trình viên đi chợ, vợ dặn: 'Mua cho em 1 nải chuối, nếu thấy trứng thì mua 10 quả'. Anh ấy mang về 10 nải chuối. Vợ hỏi: 'Sao mua lắm chuối thế?'. Anh đáp: 'Vì anh thấy có bán trứng!' 🤣"
+    ];
+    return jokes[Math.floor(Math.random() * jokes.length)];
   }
 
-  // 6. Cảm biến LM35 & Nhiệt độ
-  if (q.includes('nhiệt độ') || q.includes('bao nhiêu độ') || q.includes('nóng') || q.includes('lạnh') || q.includes('lm35') || q.includes('cảm biến nhiệt') || q.includes('nguyên lý lm35')) {
-    return `🌡️ **CẢM BIẾN NHIỆT ĐỘ LM35 PRECISION SENSOR:**\n• Nhiệt độ đo được tức thời: **${temp.toFixed(1)}°C**\n• Ngưỡng báo cháy cài đặt: **${threshold.toFixed(1)}°C**\n• Đánh giá: ${isDanger ? '🚨 **NGUY HIỂM: Đang vượt ngưỡng an toàn!**' : temp >= threshold - 10 ? '⚠️ **CẢNH BÁO: Nhiệt độ tiệm cận ngưỡng!**' : '✅ **AN TOÀN: Môi trường trong giới hạn cho phép.**'}\n\n💡 **Nguyên lý hoạt động của LM35**:\n- Cảm biến xuất điện áp tỷ lệ tuyến tính với nhiệt độ theo hệ số **10mV/°C** (ví dụ 25°C = 250mV).\n- Arduino đọc qua chân Analog A0 và chạy thuật toán **Lọc trung bình trượt 10 mẫu** để khử nhiễu điện áp, chống báo động giả.`;
+  // 5. Hỏi thời tiết, nhiệt độ phòng
+  if (q.includes('thời tiết') || q.includes('nóng') || q.includes('lạnh') || q.includes('mát') || q.includes('nhiệt độ')) {
+    let feel = temp > 35 ? 'khá là oi bức và nóng nực! Bạn nhớ bật quạt/điều hòa và uống nhiều nước nhé.' : temp < 24 ? 'khá se lạnh và mát mẻ.' : 'rất dễ chịu và ở ngưỡng lý tưởng!';
+    return `🌡️ Hiện tại cảm biến LM35 đang đo được nhiệt độ là **${temp.toFixed(1)}°C**.\nTrạng thái: ${feel}\nNgưỡng báo động hỏa hoạn được thiết lập là **${threshold}°C** (Hiện tại: ${isDanger ? '🚨 Đang vượt ngưỡng hỏa hoạn!' : '✅ Rất an toàn'}).`;
   }
 
-  // 7. Báo cháy, hỏa hoạn, còi hú
-  if (q.includes('cháy') || q.includes('hỏa hoạn') || q.includes('còi') || q.includes('báo động') || q.includes('hú còi') || q.includes('siren')) {
-    if (isDanger) {
-      return `🚨 **BÁO ĐỘNG ĐỎ: ĐANG CÓ NGUY CƠ HỎA HOẠN!**\n• Nhiệt độ cảm biến: **${temp.toFixed(1)}°C** (Vượt ngưỡng ${threshold.toFixed(1)}°C)\n• Còi hú PCCC: Đang hú còi biến tần liên tục không ngừng.\n• Cảnh báo Gmail: Đã tự động phát báo cáo khẩn cấp tới: **${alertEmail}**.\n\n🛡️ **HÀNH ĐỘNG NGAY LẬP TỨC**:\n1. Giữ bình tĩnh, hô hoán người xung quanh.\n2. Ngắt cầu dao điện tổng (Aptomat).\n3. Dùng bình chữa cháy mini dập gốc lửa nếu đám cháy nhỏ.\n4. Thoát ra ngoài theo cầu thang bộ (không dùng thang máy).\n5. Gọi ngay **114** cho lực lượng Cứu hỏa PCCC!`;
-    }
-    return `✅ **TRẠNG THÁI PCCC HIỆN TẠI: AN TOÀN**\n• Nhiệt độ phòng hiện tại: **${temp.toFixed(1)}°C** (Dưới ngưỡng kích hoạt ${threshold.toFixed(1)}°C).\n• Còi báo động đa tần số và hệ thống cảnh báo Gmail đang ở chế độ thường trực (Standby 24/7).\n• Bạn có thể thử nghiệm bằng cách bấm nút **"🚨 Test Báo Cháy (65°C)"** trên thanh tiêu đề!`;
+  // 6. Hỏi giờ giấc, ngày tháng
+  if (q.includes('mấy giờ') || q.includes('bây giờ là') || q.includes('thời gian') || q.includes('ngày mấy') || q.includes('hôm nay')) {
+    return `⏱️ Bây giờ là: **${time}** (${timeFormat}).\n📅 Hôm nay là: **${date}**.\nThời gian được đồng bộ chuẩn xác từ module thời gian thực RTC DS3231 qua giao thức I2C!`;
   }
 
-  // 8. Gmail cảnh báo, gửi thư, cooldown
-  if (q.includes('gmail') || q.includes('email') || q.includes('hòm thư') || q.includes('hộp thư') || q.includes('thư') || q.includes('cooldown') || q.includes('spam')) {
-    return `📧 **HỆ THỐNG CẢNH BÁO TỰ ĐỘNG QUA GMAIL:**\n• Gmail đã lưu: **${alertEmail}**\n• Cơ chế tự động: Khi nhiệt độ >= ${threshold}°C, hệ thống tự động phát email báo cáo sự cố kèm mốc thời gian RTC DS3231, ảnh camera hiện trường và quy trình cứu hộ 114.\n• Chống Spam: Có cơ chế **Cooldown 45 giây** đếm ngược để chống tràn hộp thư.\n• Gửi thật vào Inbox: Nếu bạn cấu hình Mật khẩu ứng dụng Google (App Password), email sẽ tự động bay thẳng vào Inbox của bạn mà không cần bấm gì thêm!`;
+  // 7. Báo thức
+  if (q.includes('báo thức') || q.includes('hẹn giờ') || q.includes('alarm') || q.includes('chuông')) {
+    return `⏰ **TRẠNG THÁI BÁO THỨC:**\n• Tình trạng: **${isAlarmSet ? 'Đang BẬT' : 'Đang TẮT'}**\n• Giờ hẹn: **${alarmTime}**\n${isAlarmSet ? 'Khi kim đồng hồ điểm đúng giờ này, còi buzzer sẽ tự động phát chuông bíp-bíp để đánh thức bạn!' : 'Bạn có thể chỉnh giờ và bấm "Bật Báo Thức" ở khung Cài đặt bên trái nhé!'}`;
   }
 
-  // 9. Camera giám sát, ESP32-CAM, webcam
-  if (q.includes('camera') || q.includes('esp32-cam') || q.includes('webcam') || q.includes('chụp ảnh') || q.includes('ảnh') || q.includes('video') || q.includes('chứng cứ')) {
-    return `📷 **CAMERA GIÁM SÁT AN NINH AI:**\n• 3 Chế độ linh hoạt: Radar nhiệt mô phỏng Canvas, Webcam laptop thiết bị thật, hoặc luồng IP Stream từ ESP32-CAM.\n• Tự động chụp bằng chứng: Khi phát hiện nhiệt độ vượt ngưỡng, camera tự động chụp ảnh hiện trường, đóng dấu mốc thời gian (Timestamp Watermark) và lưu vào thư viện để phục vụ điều tra nguyên nhân cháy.`;
+  // 8. Cháy, hỏa hoạn, PCCC
+  if (q.includes('cháy') || q.includes('hỏa hoạn') || q.includes('còi') || q.includes('báo cháy') || q.includes('khẩn cấp')) {
+    return `🚨 **TÌNH TRẠNG BÁO CHÁY HIỆN TẠI:**\n• Nhiệt độ đo được: **${temp.toFixed(1)}°C** / Ngưỡng báo động: **${threshold}°C**\n• Trạng thái: **${isDanger ? '🚨 ĐANG BÁO ĐỘNG HỎA HOẠN!' : '✅ AN TOÀN'}\n• Khi nhiệt độ vượt ngưỡng, còi báo cháy sẽ hú liên tục không ngừng và hệ thống tự động chụp ảnh gửi về Gmail: ${alertEmail}.`;
   }
 
-  // 10. Phần cứng IoT: Arduino, ESP32, LCD, I2C
-  if (q.includes('arduino') || q.includes('esp32') || q.includes('phần cứng') || q.includes('linh kiện') || q.includes('sơ đồ') || q.includes('i2c') || q.includes('lcd') || q.includes('buzzer') || q.includes('mạch')) {
-    return `🛠️ **KIẾN TRÚC PHẦN CỨNG HỆ THỐNG (IOT 102):**\n1. **Vi điều khiển**: Arduino Uno R3 (xử lý logic chính).\n2. **Đồng hồ thời gian thực**: RTC DS3231 (giao tiếp I2C chân A4-SDA, A5-SCL, địa chỉ 0x68).\n3. **Cảm biến nhiệt**: LM35 (kết nối chân Analog A0 có mạch lọc 10 mẫu).\n4. **Màn hình hiển thị**: LCD 16x2 I2C (địa chỉ 0x27).\n5. **Còi & Đèn**: Active Buzzer (chân D8), LED cảnh báo đỏ (chân D7).\n6. **Nút bấm phần cứng**: Chân D2 (Chế độ), D3 (Tăng giờ), D4 (Tắt còi khẩn cấp) có lọc chống dội 50ms.\n7. **Camera**: ESP32-CAM truyền luồng video MJPEG qua WiFi.\n\n*(Bạn có thể bấm nút "🛠️ Code Firmware & Sơ Đồ" trên đầu trang để xem trọn bộ code C++ nạp mạch)*.`;
+  // 9. Gmail cảnh báo
+  if (q.includes('gmail') || q.includes('email') || q.includes('thư')) {
+    return `📧 **CẢNH BÁO QUA GMAIL:**\n• Địa chỉ nhận tin: **${alertEmail}**\n• Cơ chế: Khi có quá nhiệt hay hỏa hoạn, hệ thống sẽ tự động phát thư chứa thông tin nhiệt độ, thời gian RTC và ảnh hiện trường về hòm thư này.`;
   }
 
-  // 11. Quy trình PCCC, bình chữa cháy, thoát hiểm, số 114
-  if (q.includes('quy trình') || q.includes('thoát hiểm') || q.includes('114') || q.includes('bình chữa cháy') || q.includes('co2') || q.includes('bột') || q.includes('chữa cháy')) {
-    return `🧯 **QUY TRÌNH THOÁT HIỂM PCCC CHUẨN BỘ CÔNG AN (5 BƯỚC):**\n1. **BÁO ĐỘNG**: Hô hoán thật to và bấm chuông báo động cho mọi người xung quanh biết.\n2. **NGẮT ĐIỆN**: Lập tức ngắt cầu dao tổng (Aptomat) khu vực cháy để tránh chập điện lan rộng.\n3. **DẬP LỬA SƠ KHỞI**: Nếu lửa mới phát sinh: dùng bình khí CO2 (cho đồ điện) hoặc bình bột ABC quét qua lại vào gốc lửa.\n4. **SƠ TÁN AN TOÀN**: Dùng khăn ẩm hoặc khẩu trang ướt bịt kín mũi miệng để tránh ngạt khói độc carbon monoxide (CO), cúi thấp người men sát chân tường thoát ra ngoài bằng cầu thang bộ (TUYỆT ĐỐI không đi thang máy).\n5. **GỌI 114**: Gọi ngay đường dây nóng Cảnh sát PCCC và CNCH **114** để được cứu hộ chuyên nghiệp.`;
+  // 10. Phần cứng IoT: Arduino, ESP32, LM35, RTC
+  if (q.includes('arduino') || q.includes('esp32') || q.includes('phần cứng') || q.includes('linh kiện') || q.includes('lm35') || q.includes('ds3231')) {
+    return `🛠️ **HỆ THỐNG PHẦN CỨNG GỒM:**\n1. **Arduino Uno R3**: Vi điều khiển trung tâm.\n2. **RTC DS3231**: Đồng hồ thời gian thực I2C (chân A4/A5).\n3. **Cảm biến LM35**: Đo nhiệt độ analog (chân A0, độ nhạy 10mV/°C).\n4. **Active Buzzer**: Phát còi hú báo cháy và chuông báo thức (chân D8).\n5. **ESP32-CAM**: Camera an ninh phát luồng video qua WiFi.\n(Bấm nút "🛠️ Code & Sơ Đồ" ở thanh trên cùng để xem chi tiết sơ đồ pinout nhé!)`;
   }
 
-  // 12. Sơ cứu ngạt khói và bỏng
-  if (q.includes('bỏng') || q.includes('sơ cứu') || q.includes('ngạt khói') || q.includes('sơ cấp cứu')) {
-    return `🩹 **HƯỚNG DẪN SƠ CỨU KHI GẶP NẠN DO HỎA HOẠN:**\n\n1. **Sơ cứu nạn nhân ngạt khói**:\n• Đưa nạn nhân ngay ra nơi thoáng khí, nới lỏng cổ áo, thắt lưng.\n• Nếu nạn nhân ngừng thở, tiến hành ép tim ngoài lồng ngực và hô hấp nhân tạo ngay lập tức, gọi 115.\n\n2. **Sơ cứu vết thương bỏng nhiệt**:\n• Ngâm hoặc xối rửa nhẹ nhàng vết bỏng dưới vòi **nước mát sạch** trong 15-20 phút (nhiệt độ nước khoảng 16-20°C).\n• **TUYỆT ĐỐI KHÔNG**: Dùng nước đá lạnh buốt, không bôi kem đánh răng, mỡ trăn, nước mắm lên vết bỏng.\n• Băng vết bỏng bằng gạc vô trùng che nhẹ nhàng, không băng chặt, rồi chuyển ngay tới cơ sở y tế.`;
+  // 11. Quy trình thoát hiểm PCCC, 114
+  if (q.includes('quy trình') || q.includes('thoát hiểm') || q.includes('114') || q.includes('bình chữa cháy')) {
+    return `🧯 **QUY TRÌNH THOÁT HIỂM PCCC CHUẨN (5 BƯỚC):**\n1. **Hô hoán báo động** cho mọi người xung quanh.\n2. **Cúp cầu dao điện tổng** khu vực cháy.\n3. **Dập lửa ban đầu** bằng bình chữa cháy nếu lửa còn nhỏ.\n4. **Thoát nạn an toàn**: Bịt khăn ẩm vào mũi miệng, cúi thấp người men theo chân tường ra ngoài, không đi thang máy.\n5. **Gọi ngay 114** cho lực lượng Cứu hỏa chuyên nghiệp.`;
   }
 
-  // 13. Hỏi về kết nối ChatGPT, Gemini, AI
-  if (q.includes('chatgpt') || q.includes('gemini') || q.includes('openai') || q.includes('api key') || q.includes('ai lỏ') || q.includes('thông minh')) {
-    return `🤖 **CÁCH KẾT NỐI GEMINI / CHATGPT THẬT 100% VÀO ĐÂY:**\n\nHiện tại tôi đang vận hành ở chế độ **Local Smart Engine** tích hợp sẵn (không tốn phí, không sợ mất mạng). Để tôi có thể trò chuyện đa năng, làm thơ, viết code, giải toán và giao tiếp tự nhiên y hệt như ChatGPT hay Gemini trên trang web chính thức:\n\n1. Bấm nút **"🤖 Cài API Key (Gemini / GPT)"** ở góc trên khung chat này.\n2. Lấy API Key miễn phí của **Google Gemini** tại: https://aistudio.google.com/app/apikey (hoặc OpenAI API Key).\n3. Dán key vào và bấm OK.\n\nLập tức tôi sẽ biến thành phiên bản Gemini / GPT thông minh không giới hạn của bạn!`;
-  }
-
-  // 14. Phản hồi hội thoại thông minh linh hoạt (Conversational Contextual Engine)
-  return `Tôi đã nhận được câu hỏi của bạn: "${rawQ}".\n\nVề mặt hệ thống hiện tại:\n• Thời gian: **${time}** | Nhiệt độ môi trường: **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động' : '✅ Bình thường'})\n• Báo thức: **${isAlarmSet ? `Đang bật lúc ${alarmTime}` : 'Đang tắt'}**\n\nBạn có thể hỏi tôi chi tiết hơn về: nguyên lý hoạt động của cảm biến LM35, module RTC DS3231, cách cài đặt Gmail cảnh báo, quy trình thoát nạn PCCC, hoặc bấm nút **"🤖 Cài API Key"** ở trên để kết nối trực tiếp với bộ não Google Gemini / ChatGPT để trò chuyện không giới hạn nhé!`;
+  // 12. Câu hỏi khác: Trả lời tự nhiên, thân thiện và gợi mở
+  return `Chào bạn! Tôi hiểu bạn đang muốn tìm hiểu về: "${rawQ}". 😊\n\nỞ chế độ trợ lý hiện tại, tôi đang liên tục giám sát:\n• Giờ hệ thống: **${time}**\n• Nhiệt độ LM35: **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Báo động' : '✅ An toàn'})\n• Báo thức: **${isAlarmSet ? 'Đang bật' : 'Đang tắt'}**\n\nBạn có thể hỏi tôi bất kỳ điều gì về giờ giấc, báo thức, nhiệt độ, an toàn PCCC, hay nguyên lý phần cứng Arduino/LM35 nhé!\n\n💡 **Mẹo**: Nếu bạn muốn trò chuyện không giới hạn, tán gẫu sâu, làm thơ, giải toán hay viết văn như ChatGPT thật 100%, hãy bấm nút **"🤖 Cài API Key"** ở góc trên khung chat này và dán mã Google Gemini miễn phí vào nhé!`;
 }
 
 // Gọi Google Gemini API trực tiếp từ trình duyệt (Client-Side) - Hoạt động ngay trên GitHub Pages
