@@ -2991,21 +2991,50 @@ async function sendAiQuestion(msg) {
     readings: readings.map(r => ({ time: r.time, temperature: r.temp }))
   };
 
+  let reply = '';
+  let answered = false;
+
+  const clientApiKey = localStorage.getItem('userAiApiKey');
+  const clientProvider = localStorage.getItem('userAiProvider') || 'gemini';
+
+  // 1. Nếu đang có backend server Node.js chạy, gọi API backend
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: question, context: contextData })
     });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.reply) {
+        reply = data.reply;
+        answered = true;
+      }
+    }
+  } catch {}
 
-    if (!res.ok) throw new Error('Yêu cầu tới máy chủ AI thất bại.');
-    const data = await res.json();
-    addAiMessage(data.reply || 'AI không phản hồi được nội dung này.', 'assistant');
-  } catch (err) {
-    console.warn('Sử dụng phản hồi nội bộ Local Fallback AI:', err);
-    const localReply = getClientSideFireResponse(question, contextData);
-    addAiMessage(localReply, 'assistant');
-  } finally {
+  // 2. Nếu chạy trên GitHub Pages (hoặc server chưa cấu hình key), gọi trực tiếp Gemini/OpenAI bằng key đã lưu
+  if (!answered && clientApiKey) {
+    try {
+      if (clientProvider === 'gemini' || clientApiKey.startsWith('AIza')) {
+        reply = await callClientSideGemini(clientApiKey, question, contextData);
+        answered = true;
+      } else {
+        reply = await callClientSideOpenAi(clientApiKey, question, contextData);
+        answered = true;
+      }
+    } catch (err) {
+      console.warn('Lỗi gọi API trực tiếp:', err);
+      showToast('⚠️ Lỗi API: ' + err.message, '⚠️', 5000);
+    }
+  }
+
+  // 3. Fallback: Nếu chưa cài key, trả lời bằng logic cục bộ
+  if (!answered) {
+    reply = getClientSideFireResponse(question, contextData);
+  }
+
+  addAiMessage(reply, 'assistant'); finally {
     if (input) {
       input.disabled = false;
       input.value = '';
@@ -3116,6 +3145,82 @@ function getClientSideFireResponse(message, ctx) {
   return `Tôi đã nhận được câu hỏi của bạn: "${rawQ}".\n\nVề mặt hệ thống hiện tại:\n• Thời gian: **${time}** | Nhiệt độ môi trường: **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động' : '✅ Bình thường'})\n• Báo thức: **${isAlarmSet ? `Đang bật lúc ${alarmTime}` : 'Đang tắt'}**\n\nBạn có thể hỏi tôi chi tiết hơn về: nguyên lý hoạt động của cảm biến LM35, module RTC DS3231, cách cài đặt Gmail cảnh báo, quy trình thoát nạn PCCC, hoặc bấm nút **"🤖 Cài API Key"** ở trên để kết nối trực tiếp với bộ não Google Gemini / ChatGPT để trò chuyện không giới hạn nhé!`;
 }
 
+// Gọi Google Gemini API trực tiếp từ trình duyệt (Client-Side) - Hoạt động ngay trên GitHub Pages
+async function callClientSideGemini(apiKey, message, ctx) {
+  const systemPrompt = `Bạn là Trợ lý AI thông minh của hệ thống "Đồng hồ thông minh cảm ứng nhiệt báo cháy & Giám sát Camera AI" (Smart Thermal Fire Alarm Clock - IoT 102).
+Dữ liệu thời gian thực hiện tại của hệ thống:
+- Giờ hiện tại: ${ctx.time || '19:30:00'} (${ctx.date || 'Hôm nay'}, định dạng ${ctx.timeFormat || '24H'})
+- Trạng thái báo thức: ${ctx.isAlarmSet ? `Đang BẬT lúc ${ctx.alarmTime}` : 'Đang TẮT'}
+- Nhiệt độ cảm biến LM35: ${ctx.temperature || 28.5}°C (Ngưỡng an toàn: ${ctx.alarmThreshold || 50}°C)
+- Tình trạng an toàn PCCC: ${ctx.fireStatus || 'SAFE'}
+- Gmail nhận cảnh báo: ${ctx.alertEmail || 'Chưa gán'}
+- Camera an ninh: ${ctx.cameraStatus || 'Đang hoạt động'}
+
+Nhiệm vụ của bạn:
+1. Trò chuyện tự nhiên, thân thiện, thông minh như ChatGPT / Gemini bằng tiếng Việt.
+2. Bạn có thể trò chuyện bất kỳ chủ đề gì: đố vui, tâm sự, giải toán, viết văn, viết code, tư vấn phần cứng IoT (Arduino Uno, RTC DS3231, LM35, ESP32-CAM) và hướng dẫn an toàn PCCC.
+3. Khi người dùng hỏi về nhiệt độ, đồng hồ, báo thức hay trạng thái cháy, hãy dùng các thông số thực tế ở trên để trả lời chính xác.`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: `${systemPrompt}\n\n[Người dùng]: ${message}` }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 1000
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error?.message || `Lỗi Gemini API (${response.status})`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Không nhận được nội dung từ Gemini.');
+  return text.trim();
+}
+
+// Gọi OpenAI API trực tiếp từ trình duyệt
+async function callClientSideOpenAi(apiKey, message, ctx) {
+  const url = 'https://api.openai.com/v1/chat/completions';
+  const systemPrompt = `Bạn là Trợ lý AI thông minh của hệ thống "Đồng hồ số thông minh cảm ứng nhiệt báo cháy & Giám sát Camera AI" (IoT 102). Giờ: ${ctx.time || ''}, Nhiệt độ LM35: ${ctx.temperature || 28.5}°C, Trạng thái PCCC: ${ctx.fireStatus || 'SAFE'}, Báo thức: ${ctx.isAlarmSet ? 'BẬT ' + ctx.alarmTime : 'TẮT'}. Hãy giao tiếp thông minh, thân thiện bằng tiếng Việt, trả lời được mọi câu hỏi tự nhiên như ChatGPT.`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000
+    })
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error?.message || `Lỗi OpenAI API (${response.status})`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content?.trim() || 'OpenAI không trả lời được.';
+}
+
 async function configureAiKey() {
   const providerChoice = prompt(
     'Chọn Nhà cung cấp AI bạn muốn kết nối:\n\n' +
@@ -3127,30 +3232,31 @@ async function configureAiKey() {
 
   const provider = providerChoice.toLowerCase().includes('open') ? 'openai' : 'gemini';
   const keyPrompt = provider === 'gemini' 
-    ? 'Nhập Google Gemini API Key (Bắt đầu bằng AIza... Lấy miễn phí tại https://aistudio.google.com/app/apikey):'
+    ? 'Nhập Google Gemini API Key (Bắt đầu bằng AIza... Lấy MIỄN PHÍ tại https://aistudio.google.com/app/apikey):'
     : 'Nhập OpenAI API Key (Bắt đầu bằng sk-...):';
 
   const apiKey = prompt(keyPrompt);
   if (!apiKey || !apiKey.trim()) return;
 
+  const cleanKey = apiKey.trim();
+  // Lưu trực tiếp vào localStorage trên trình duyệt - Hoạt động ngay cả trên GitHub Pages!
+  localStorage.setItem('userAiApiKey', cleanKey);
+  localStorage.setItem('userAiProvider', provider);
+
+  // Đồng bộ lên backend server nếu đang chạy Node.js
   try {
-    const res = await fetch('/api/config/ai', {
+    await fetch('/api/config/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, apiKey: apiKey.trim() })
+      body: JSON.stringify({ provider, apiKey: cleanKey })
     });
-    const data = await res.json();
-    if (data.success) {
-      showToast(`🎉 ${data.message}`, '🤖', 6000);
-      const modelElem = document.getElementById('aiModelVal');
-      if (modelElem) modelElem.textContent = data.provider;
-      addAiMessage(`Xin chào! Tôi đã được nâng cấp kết nối trực tiếp với ${data.provider}. Bây giờ bạn có thể hỏi tôi bất kỳ điều gì, trò chuyện tự nhiên, giải toán, viết code, tư vấn mọi kiến thức như ChatGPT / Gemini thật 100%!`, 'assistant');
-    } else {
-      alert('Lỗi: ' + (data.error || 'Không thể lưu API Key.'));
-    }
-  } catch (err) {
-    alert('Không thể kết nối đến máy chủ: ' + err.message);
-  }
+  } catch {}
+
+  const modelElem = document.getElementById('aiModelVal');
+  if (modelElem) modelElem.textContent = provider === 'gemini' ? 'Google Gemini (Trực tuyến)' : 'ChatGPT GPT-4o (Trực tuyến)';
+
+  showToast(`🎉 Đã kích hoạt ${provider === 'gemini' ? 'Google Gemini' : 'ChatGPT'} thành công!`, '🤖', 6000);
+  addAiMessage(`🎉 Tuyệt vời! Tôi đã được kết nối trực tiếp với ${provider === 'gemini' ? 'Google Gemini' : 'ChatGPT'}.\nBây giờ bạn có thể trò chuyện với tôi thoải mái về bất kỳ chủ đề gì: đố vui, tâm sự, viết văn, giải toán, viết code, tư vấn IoT và PCCC như ChatGPT thật 100%!`, 'assistant');
 }
 
 function askAiQuestion(prompt) {
@@ -3212,6 +3318,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 3000);
 
   // Khôi phục dữ liệu lịch sử nhiệt độ từ localStorage (nếu có)
+  // Tự động khôi phục cấu hình API Key từ localStorage
+  const savedApiKey = localStorage.getItem('userAiApiKey');
+  const savedProvider = localStorage.getItem('userAiProvider') || 'gemini';
+  if (savedApiKey) {
+    const modelElem = document.getElementById('aiModelVal');
+    if (modelElem) {
+      modelElem.textContent = savedProvider === 'gemini' ? 'Google Gemini (Trực tuyến)' : 'ChatGPT GPT-4o (Trực tuyến)';
+    }
+  }
+
   let hasRestoredHistory = false;
   try {
     const savedReadings = localStorage.getItem('fireReadingsHistory');
