@@ -1,0 +1,208 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "role": "admin",
+      "password_hash": "admin123",
+      "full_name": "Quản Trị Viên Hệ Thống PCCC",
+      "created_at": "2026-11-11T13:09:19.808Z",
+      "last_login": "2026-11-11T13:21:43.007Z"
+    },
+    {
+      "id": 2,
+      "username": "user",
+      "role": "user",
+      "password_hash": "123456",
+      "full_name": "Nhân Viên Giám Sát",
+      "created_at": "2026-11-11T13:09:19.817Z"
+    }
+  ],
+  "devices": [
+    {
+      "device_id": "ARDUINO-UNO-01",
+      "name": "KIT Arduino Uno & RTC DS3231 (Trạm Giám Sát)",
+      "com_port": "COM3",
+      "baud_rate": 115200,
+      "status": "STANDBY",
+      "sensor_status": "NORMAL",
+      "buzzer_status": "READY",
+      "last_seen": "2026-11-11T13:09:19.817Z"
+    },
+    {
+      "device_id": "ESP32-CAM-01",
+      "name": "Camera Giám Sát AI Hiện Trường",
+      "com_port": "WiFi/IP",
+      "baud_rate": 115200,
+      "status": "STANDBY",
+      "sensor_status": "NORMAL",
+      "buzzer_status": "STANDBY",
+      "last_seen": "2026-11-11T13:09:19.817Z"
+    }
+  ],
+  "alert_thresholds": {
+    "warning_temp": 41.5,
+    "danger_temp": 51.5,
+    "sustain_seconds": 2,
+    "buzzer_enabled": 1,
+    "email_enabled": 1,
+    "rate_of_rise_threshold": 3,
+    "updated_at": "2026-11-11T13:21:42.981Z"
+  },
+  "sensor_data": [
+    {
+      "id": 1,
+      "device_id": "TEST-ARDUINO-01",
+      "temperature": 31.8,
+      "source": "USB_SERIAL",
+      "rate_of_rise": 0,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-11T13:13:40.616Z"
+    },
+    {
+      "id": 2,
+      "device_id": "ARDUINO-UNO-01",
+      "temperature": 31.2,
+      "source": "TEST",
+      "rate_of_rise": 0,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-11T13:14:07.538Z"
+    },
+    {
+      "id": 3,
+      "device_id": "TEST-ARDUINO-01",
+      "temperature": 31.8,
+      "source": "USB_SERIAL",
+      "rate_of_rise": 0,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-11T13:21:02.643Z"
+    },
+    {
+      "id": 4,
+      "device_id": "ARDUINO-UNO-01",
+      "temperature": 31.8,
+      "source": "USB_SERIAL",
+      "rate_of_rise": 0.2,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-11T13:21:43.004Z"
+    }
+  ],
+  "fire_events": [
+    {
+      "event_id": "EVT-1794402847539",
+      "device_id": "ARDUINO-UNO-01",
+      "peak_temperature": 66.5,
+      "severity": "DANGER",
+      "status": "ACTIVE",
+      "alarm_reason": "Kiểm thử hỏa hoạn",
+      "resolution_notes": "",
+      "start_time": "2026-11-11T13:14:07.539Z",
+      "end_time": null
+    }
+  ],
+  "alarm_logs": [],
+  "camera_images": [],
+  "email_logs": [
+    {
+      "id": 4,
+      "event_id": "INC-303008",
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-303008",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-11T13:21:43.008Z"
+    },
+    {
+      "id": 3,
+      "event_id": null,
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "[KIỂM THỬ KẾT NỐI] Hệ Thống Cảnh Báo PCCC IoT 102 - Thử Nghiệm Hoạt Động",
+      "temperature": 28.5,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-11T13:21:43.002Z"
+    },
+    {
+      "id": 2,
+      "event_id": "INC-262662",
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-262662",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-11T13:21:02.663Z"
+    },
+    {
+      "id": 1,
+      "event_id": "INC-820676",
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-820676",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-11T13:13:40.676Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": 2,
+      "title": "🚨 Báo Động Hỏa Hoạn!",
+      "message": "Phát hiện nhiệt độ 66.5°C vượt ngưỡng an toàn! Còi báo động đã kích hoạt.",
+      "level": "DANGER",
+      "is_read": 0,
+      "created_at": "2026-11-11T13:14:07.539Z"
+    },
+    {
+      "id": 1,
+      "title": "Hệ thống khởi động",
+      "message": "Máy chủ Giám sát PCCC & Đồng hồ thông minh đã sẵn sàng.",
+      "level": "INFO",
+      "is_read": 0,
+      "created_at": "2026-11-11T13:09:19.817Z"
+    }
+  ],
+  "system_logs": [
+    {
+      "id": 6,
+      "action": "USER_LOGIN",
+      "details": "Người dùng admin đăng nhập thành công.",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-11T13:21:43.008Z"
+    },
+    {
+      "id": 5,
+      "action": "SYNC_EMAIL",
+      "details": "Đã đồng bộ Gmail cảnh báo: test_student_iot@gmail.com",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-11T13:21:42.987Z"
+    },
+    {
+      "id": 4,
+      "action": "UPDATE_THRESHOLDS",
+      "details": "Đã cập nhật ngưỡng: Cảnh báo 41.5°C, Nguy hiểm 51.5°C",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-11T13:21:42.981Z"
+    },
+    {
+      "id": 3,
+      "action": "SYNC_EMAIL",
+      "details": "Đã đồng bộ Gmail cảnh báo: test_student_iot@gmail.com",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-11T13:21:02.639Z"
+    },
+    {
+      "id": 2,
+      "action": "SYNC_EMAIL",
+      "details": "Đã đồng bộ Gmail cảnh báo: test_student_iot@gmail.com",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-11T13:13:40.614Z"
+    },
+    {
+      "id": 1,
+      "action": "SYSTEM_BOOT",
+      "details": "Khởi động máy chủ và nạp cơ sở dữ liệu bền vững.",
+      "created_at": "2026-11-11T13:09:19.817Z"
+    }
+  ]
+}

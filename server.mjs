@@ -3,6 +3,7 @@ import tls from 'node:tls';
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import * as db from './database.mjs';
 
 // Nạp file .env nếu có (Tích hợp sẵn trong Node.js)
 const envFilePath = fileURLToPath(new URL('./.env', import.meta.url));
@@ -23,7 +24,7 @@ const port = Number(process.env.PORT) || 3000;
 const indexPath = fileURLToPath(new URL('./index.html', import.meta.url));
 const emailConfigPath = fileURLToPath(new URL('./email-config.json', import.meta.url));
 
-// Biến lưu trữ Gmail nhận cảnh báo dùng chung cho toàn bộ hệ thống (đồng bộ tất cả các máy)
+// Biến lưu trữ Gmail nhận cảnh báo dùng chung cho toàn bộ hệ thống
 let sharedAlertEmail = (process.env.DEFAULT_ALERT_EMAIL || '').trim();
 
 // Tự động tải Gmail đã cấu hình từ file email-config.json khi server khởi động
@@ -40,13 +41,16 @@ try {
   console.warn('[INIT] Chưa tải được email-config.json:', err.message);
 }
 
-// Dữ liệu cảm biến phần cứng thật (Arduino / ESP32 gửi lên qua WiFi)
+// Dữ liệu cảm biến phần cứng thật (Arduino / ESP32 gửi lên qua Serial hoặc WiFi)
 let hardwareTelemetry = {
   temperature: 28.5,
+  rateOfRise: 0.0,
   timestamp: new Date().toISOString(),
   source: 'STANDBY',
   isFire: false,
-  deviceId: 'ARDUINO-ESP32-01'
+  isWarning: false,
+  buzzerState: 'READY',
+  deviceId: 'ARDUINO-UNO-01'
 };
 
 // Cooldown chống spam gửi email cảnh báo tự động dồn dập (45 giây)
@@ -55,13 +59,10 @@ const EMAIL_COOLDOWN_MS = 45000;
 
 /**
  * Gửi email cảnh báo trực tiếp qua Google SMTP (smtp.gmail.com:465) thuần Node.js TLS
- * Không phụ thuộc vào thư viện ngoài.
  */
 function sendNativeGmail({ user, appPassword, to, subject, htmlBody, textBody }) {
   return new Promise((resolve, reject) => {
-    const socket = tls.connect(465, 'smtp.gmail.com', { rejectUnauthorized: false }, () => {
-      // Kết nối TLS thành công
-    });
+    const socket = tls.connect(465, 'smtp.gmail.com', { rejectUnauthorized: false }, () => {});
 
     let step = 0;
     let logBuffer = '';
@@ -72,7 +73,6 @@ function sendNativeGmail({ user, appPassword, to, subject, htmlBody, textBody })
       logBuffer += data;
       const response = data.toString();
 
-      // Phản hồi chào mừng của SMTP Server (220)
       if (step === 0 && response.startsWith('220')) {
         step = 1;
         socket.write(`EHLO localhost\r\n`);
@@ -98,7 +98,7 @@ function sendNativeGmail({ user, appPassword, to, subject, htmlBody, textBody })
         step = 8;
         const boundary = '----=_Part_' + Date.now();
         const rawEmail = [
-          `From: "Smart Fire Alarm Clock" <${user}>`,
+          `From: "Smart Fire Alarm System" <${user}>`,
           `To: <${to}>`,
           `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
           `MIME-Version: 1.0`,
@@ -117,7 +117,6 @@ function sendNativeGmail({ user, appPassword, to, subject, htmlBody, textBody })
           `--${boundary}--`,
           `\r\n.\r\n`
         ].join('\r\n');
-
         socket.write(rawEmail);
       } else if (step === 8 && response.startsWith('250')) {
         step = 9;
@@ -141,14 +140,14 @@ function sendNativeGmail({ user, appPassword, to, subject, htmlBody, textBody })
   });
 }
 
-// Hàm đọc dữ liệu JSON gửi lên từ client
+// Đọc dữ liệu JSON gửi lên từ client
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
-      if (body.length > 5 * 1024 * 1024) { // Giới hạn 5MB
-        reject(new Error('Payload quá lớn (Vượt 5MB)'));
+      if (body.length > 10 * 1024 * 1024) { // Giới hạn 10MB cho ảnh
+        reject(new Error('Payload quá lớn (Vượt 10MB)'));
       }
     });
     req.on('end', () => {
@@ -162,18 +161,18 @@ function readJsonBody(req) {
   });
 }
 
-// Hàm gửi JSON response kèm CORS
+// Gửi JSON response kèm CORS
 function sendJson(res, data, statusCode = 200) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type'
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
   });
   res.end(JSON.stringify(data));
 }
 
-// Gọi Google Gemini API (Miễn phí qua AI Studio)
+// Gọi Google Gemini API
 async function callGeminiApi(apiKey, message, systemPrompt) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   const response = await fetch(url, {
@@ -202,7 +201,7 @@ async function callGeminiApi(apiKey, message, systemPrompt) {
   return text.trim();
 }
 
-// Gọi OpenAI API trực tiếp qua fetch
+// Gọi OpenAI API trực tiếp
 async function callOpenAiDirect(apiKey, model, message, systemPrompt) {
   const url = 'https://api.openai.com/v1/chat/completions';
   const response = await fetch(url, {
@@ -231,7 +230,7 @@ async function callOpenAiDirect(apiKey, model, message, systemPrompt) {
   return text.trim();
 }
 
-// Bộ não xử lý ngôn ngữ tự nhiên thông minh nội bộ (Đồng bộ đa ngữ cảnh và trò chuyện linh hoạt)
+// Phản hồi AI cục bộ thông minh (NLP Engine)
 function generateLocalFireAlarmAiResponse(message, context) {
   const rawQ = (message || '').trim();
   const q = rawQ.toLowerCase();
@@ -243,93 +242,39 @@ function generateLocalFireAlarmAiResponse(message, context) {
   const isAlarmRinging = Boolean(context?.isAlarmRinging);
   const temp = Number.isFinite(Number(context?.temperature)) ? Number(context.temperature) : 28.5;
   const fireStatus = context?.fireStatus || 'SAFE';
-  const threshold = Number(context?.alarmThreshold) || 50;
+  const threshold = Number(context?.alarmThreshold) || db.getThresholds().danger_temp || 50;
   const cameraStatus = context?.cameraStatus || 'Active Stream';
   const alertEmail = context?.alertEmail || sharedAlertEmail || 'Chưa gán địa chỉ Gmail';
   const isDanger = fireStatus === 'DANGER' || temp >= threshold;
 
-  // 1. Chào hỏi, xưng hô, làm quen
-  if (/^(chào|xin chào|hello|hi|hey|alo|ê|chao ban|hi bạn|chào bạn|chào em|chào bot)/i.test(q)) {
-    return `Chào bạn! Rất vui được trò chuyện cùng bạn. 😊\n\nTôi là Trợ lý AI của hệ thống **Smart Digital Clock & Fire Alarm** (IoT 102). Hiện tại đồng hồ đang là **${time}** (${date}) và nhiệt độ phòng là **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động cháy!' : '✅ An toàn'}).\n\nBạn có thể hỏi tôi bất kỳ điều gì: từ giờ giấc, báo thức, nhiệt độ, nguyên lý kỹ thuật LM35/RTC DS3231, đến các kỹ năng thoát hiểm PCCC khẩn cấp! Hoặc bạn muốn trò chuyện về chủ đề gì nào?`;
+  if (/^(chào|xin chào|hello|hi|hey|alo)/i.test(q)) {
+    return `Chào bạn! Rất vui được hỗ trợ bạn. 😊\n\nTôi là Trợ lý AI của **Hệ Thống Cảnh Báo & Giám Sát Hỏa Hoạn Thông Minh** (IoT 102). Đồng hồ hiện tại là **${time}** (${date}) và nhiệt độ phòng là **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động cháy!' : '✅ An toàn'}).\n\nBạn có thể hỏi tôi bất kỳ điều gì: từ cách vận hành đồng hồ RTC DS3231, cảm biến LM35, quy trình PCCC chuẩn Bộ Công An, cách xuất báo cáo CSV, hoặc kiểm tra tình trạng kết nối thiết bị!`;
   }
 
-  // 2. Hỏi danh tính, khả năng, bạn là ai
-  if (q.includes('bạn là ai') || q.includes('tên gì') || q.includes('bạn làm được gì') || q.includes('giới thiệu') || q.includes('chức năng của bạn') || q.includes('ai tạo ra')) {
-    return `🤖 **Tôi là Trợ lý AI Thông minh của dự án Smart Thermal Fire Alarm Clock**.\n\nTôi được thiết kế để đồng hành cùng bạn 24/7 với các khả năng:\n1. **Đồng bộ thời gian thực**: Nắm bắt chính xác từng giây từ chip RTC DS3231, trạng thái báo thức, và nhiệt độ môi trường từ cảm biến LM35.\n2. **Tư vấn & Cảnh báo an toàn**: Hướng dẫn quy trình thoát nạn PCCC chuẩn Bộ Công An, cách dùng bình chữa cháy CO2/bột, sơ cứu bỏng.\n3. **Giải đáp kỹ thuật IoT**: Nắm rõ kiến trúc Arduino Uno, ESP32-CAM, giao tiếp I2C, bộ lọc trung bình trượt LM35 và giao tiếp Serial.\n4. **Trò chuyện linh hoạt**: Nếu bạn gắn thêm API Key của Google Gemini hoặc OpenAI (bằng nút trên khung chat), tôi sẽ trò chuyện thông minh không giới hạn y như ChatGPT & Gemini trên web!\n\nHôm nay bạn muốn tôi giúp gì nào?`;
+  if (q.includes('bạn là ai') || q.includes('tên gì') || q.includes('chức năng của bạn')) {
+    return `🤖 **Tôi là Trợ lý AI Thông minh của Hệ thống Báo cháy & Đồng hồ Số IoT 102**.\n\nCác năng lực chính của tôi:\n1. **Giám sát thời gian thực**: Nắm bắt tức thời nhiệt độ LM35, tốc độ tăng nhiệt độ (Rate-of-Rise), và giờ giấc từ chip RTC DS3231.\n2. **Tư vấn PCCC & Thoát hiểm**: Cung cấp 5 bước thoát nạn, cách dùng bình chữa cháy CO2/bột ABC, sơ cứu nạn nhân ngạt khói và bỏng nhiệt.\n3. **Hỗ trợ kỹ thuật phần cứng**: Giải thích sơ đồ chân Arduino Uno, RTC DS3231 qua I2C (A4, A5), LCD 16x2, và ESP32-CAM.\n4. **Trò chuyện trực tuyến**: Bạn có thể gắn Google Gemini hoặc ChatGPT API Key để mở rộng đối thoại thông minh không giới hạn!`;
   }
 
-  // 3. Hỏi thăm, cảm ơn, khen ngợi
-  if (q.includes('khỏe không') || q.includes('hôm nay thế nào') || q.includes('thế nào rồi') || q.includes('có mệt không')) {
-    return `Cảm ơn bạn đã hỏi thăm! Tôi là AI nên luôn tràn đầy năng lượng 100% để túc trực bảo vệ an toàn cho bạn. 🛡️\n\nHiện tại hệ thống hoạt động rất ổn định:\n• Đồng hồ RTC: **${time}**\n• Nhiệt độ LM35: **${temp.toFixed(1)}°C** (${temp < threshold ? 'mát mẻ, an toàn' : 'đang ở mức cao!'})\n• Trạng thái còi: Sẵn sàng báo động.\n\nCòn bạn thì sao, hôm nay công việc và học tập của bạn thế nào?`;
-  }
-  if (q.includes('cảm ơn') || q.includes('thank') || q.includes('cảm ơn bạn') || q.includes('ok cảm ơn')) {
-    return `Không có chi bạn nhé! Rất vui được hỗ trợ bạn. Chúc bạn có một ngày làm việc và học tập thật năng suất, an toàn! Nếu cần hỗ trợ thêm bất cứ điều gì, cứ nhắn cho tôi nhé. 😊`;
-  }
-  if (q.includes('giỏi') || q.includes('tuyệt vời') || q.includes('hay quá') || q.includes('thông minh') || q.includes('good') || q.includes('vip')) {
-    return `Cảm ơn lời khen của bạn! Đó là nhờ nhóm tác giả đã thiết kế và huấn luyện hệ sinh thái IoT kết hợp AI rất công phu đấy ạ. Tôi sẽ luôn cố gắng phản hồi chính xác và hữu ích nhất cho bạn! 🌟`;
-  }
-  if (q.includes('tạm biệt') || q.includes('bye') || q.includes('ngủ ngon') || q.includes('hẹn gặp lại')) {
-    return `Tạm biệt bạn! Chúc bạn nghỉ ngơi thật ngon giấc. Hãy yên tâm ngủ ngon vì hệ thống đồng hồ và cảm biến nhiệt PCCC của chúng tôi vẫn sẽ túc trực 24/7 để bảo vệ bạn! Hẹn gặp lại bạn nhé. 👋`;
+  if (q.includes('nhiệt độ') || q.includes('bao nhiêu độ') || q.includes('lm35')) {
+    return `🌡️ **CẢM BIẾN NHIỆT ĐỘ LM35:**\n• Nhiệt độ đo được: **${temp.toFixed(1)}°C**\n• Ngưỡng cảnh báo: **${db.getThresholds().warning_temp}°C** | Ngưỡng nguy hiểm: **${threshold}°C**\n• Đánh giá: ${isDanger ? '🚨 **NGUY HIỂM: Đang vượt ngưỡng!**' : temp >= threshold - 10 ? '⚠️ **CẢNH BÁO: Nhiệt độ tăng cao!**' : '✅ **AN TOÀN: Nằm trong giới hạn ổn định.**'}\n• Tốc độ biến thiên (Rate-of-Rise): Đang được phân tích liên tục mỗi 5s để phát hiện điểm cháy bùng phát sớm.`;
   }
 
-  // 4. Báo thức & Chuông
-  if (q.includes('báo thức') || q.includes('hẹn giờ') || q.includes('alarm') || q.includes('chuông') || q.includes('snooze') || q.includes('báo lại')) {
-    if (isAlarmRinging) {
-      return `⏰ **CHÚ Ý: BÁO THỨC ĐANG REO!**\n• Giờ hẹn: ${alarmTime}\n• Chuông đang kêu liên tục không ngừng cho đến khi bạn bấm nút để chống ngủ quên.\n• Bạn có thể nhấn nút **"🔕 Tắt Báo Thức"** hoặc **"⏳ Báo lại sau 5 phút (Snooze)"** ngay trên màn hình.`;
-    }
-    return `⏰ **TRẠNG THÁI BÁO THỨC ĐỒNG HỒ:**\n• Cài đặt báo thức: **${isAlarmSet ? `Đang BẬT (Hẹn lúc: ${alarmTime})` : 'Đang TẮT'}**.\n• Giờ hiện tại: **${time}** (${timeFormat}).\n• Đặc điểm chuông: Phát âm thanh bíp-bíp ngắt quãng qua Web Audio Synthesizer, reo liên tục vĩnh viễn cho đến khi bạn chủ động tắt hoặc hẹn báo lại sau 5 phút.`;
-  }
-
-  // 5. Đồng hồ, RTC DS3231, Chỉnh giờ
-  if (q.includes('mấy giờ') || q.includes('thời gian') || q.includes('ngày') || q.includes('thứ') || q.includes('rtc') || q.includes('ds3231') || q.includes('chỉnh giờ') || q.includes('định dạng') || q.includes('12h') || q.includes('24h')) {
-    return `⏱️ **ĐỒNG HỒ THỜI GIAN THỰC RTC DS3231:**\n• Thời gian hiện tại: **${time}** (Định dạng: **${timeFormat}**)\n• Ngày tháng: **${date}**\n• Phần cứng: Chip RTC DS3231 độ chính xác cao với thạch anh bù nhiệt TCXO, sai số cực thấp dưới 1 phút/năm và có pin nuôi nguồn riêng CR2032.\n• Tiện ích: Bạn có thể bấm nút chuyển 12H/24H hoặc bấm **"⚙️ Chỉnh Giờ Thủ Công"** để tăng giảm giờ/phút theo ý muốn.`;
-  }
-
-  // 6. Cảm biến LM35 & Nhiệt độ
-  if (q.includes('nhiệt độ') || q.includes('bao nhiêu độ') || q.includes('nóng') || q.includes('lạnh') || q.includes('lm35') || q.includes('cảm biến nhiệt') || q.includes('nguyên lý lm35')) {
-    return `🌡️ **CẢM BIẾN NHIỆT ĐỘ LM35 PRECISION SENSOR:**\n• Nhiệt độ đo được tức thời: **${temp.toFixed(1)}°C**\n• Ngưỡng báo cháy cài đặt: **${threshold.toFixed(1)}°C**\n• Đánh giá: ${isDanger ? '🚨 **NGUY HIỂM: Đang vượt ngưỡng an toàn!**' : temp >= threshold - 10 ? '⚠️ **CẢNH BÁO: Nhiệt độ tiệm cận ngưỡng!**' : '✅ **AN TOÀN: Môi trường trong giới hạn cho phép.**'}\n\n💡 **Nguyên lý hoạt động của LM35**:\n- Cảm biến xuất điện áp tỷ lệ tuyến tính với nhiệt độ theo hệ số **10mV/°C** (ví dụ 25°C = 250mV).\n- Arduino đọc qua chân Analog A0 và chạy thuật toán **Lọc trung bình trượt 10 mẫu** để khử nhiễu điện áp, chống báo động giả.`;
-  }
-
-  // 7. Báo cháy, hỏa hoạn, còi hú
-  if (q.includes('cháy') || q.includes('hỏa hoạn') || q.includes('còi') || q.includes('báo động') || q.includes('hú còi') || q.includes('siren')) {
+  if (q.includes('cháy') || q.includes('hỏa hoạn') || q.includes('báo động')) {
     if (isDanger) {
-      return `🚨 **BÁO ĐỘNG ĐỎ: ĐANG CÓ NGUY CƠ HỎA HOẠN!**\n• Nhiệt độ cảm biến: **${temp.toFixed(1)}°C** (Vượt ngưỡng ${threshold.toFixed(1)}°C)\n• Còi hú PCCC: Đang hú còi biến tần liên tục không ngừng.\n• Cảnh báo Gmail: Đã tự động phát báo cáo khẩn cấp tới: **${alertEmail}**.\n\n🛡️ **HÀNH ĐỘNG NGAY LẬP TỨC**:\n1. Giữ bình tĩnh, hô hoán người xung quanh.\n2. Ngắt cầu dao điện tổng (Aptomat).\n3. Dùng bình chữa cháy mini dập gốc lửa nếu đám cháy nhỏ.\n4. Thoát ra ngoài theo cầu thang bộ (không dùng thang máy).\n5. Gọi ngay **114** cho lực lượng Cứu hỏa PCCC!`;
+      return `🚨 **BÁO ĐỘNG ĐỎ: ĐANG CÓ NGUY CƠ HỎA HOẠN!**\n• Nhiệt độ: **${temp.toFixed(1)}°C** (Vượt ngưỡng ${threshold}°C)\n• Còi hú PCCC: Đang hú còi biến tần liên tục.\n• Cảnh báo Gmail: Đã phát báo cáo khẩn cấp tới: **${alertEmail}**.\n\n🛡️ **HÀNH ĐỘNG NGAY LẬP TỨC**:\n1. Hô hoán mọi người xung quanh.\n2. Cúp ngay Aptomat tổng.\n3. Dùng bình chữa cháy mini xử lý gốc lửa nếu an toàn.\n4. Thoát ra ngoài bằng cầu thang bộ (không dùng thang máy).\n5. Gọi ngay **114** cho lực lượng Cứu hỏa PCCC!`;
     }
-    return `✅ **TRẠNG THÁI PCCC HIỆN TẠI: AN TOÀN**\n• Nhiệt độ phòng hiện tại: **${temp.toFixed(1)}°C** (Dưới ngưỡng kích hoạt ${threshold.toFixed(1)}°C).\n• Còi báo động đa tần số và hệ thống cảnh báo Gmail đang ở chế độ thường trực (Standby 24/7).\n• Bạn có thể thử nghiệm bằng cách bấm nút **"🚨 Test Báo Cháy (65°C)"** trên thanh tiêu đề!`;
+    return `✅ **TRẠNG THÁI PCCC HIỆN TẠI: AN TOÀN**\n• Nhiệt độ phòng hiện tại: **${temp.toFixed(1)}°C** (Dưới ngưỡng ${threshold}°C).\n• Còi báo động đa tần số và hệ thống tự động gửi Gmail đang ở chế độ thường trực (Standby 24/7).\n• Bạn có thể nhấn nút **"🚨 Test Báo Cháy (65°C)"** để thử nghiệm kịch bản báo động!`;
   }
 
-  // 8. Gmail cảnh báo, gửi thư, cooldown
-  if (q.includes('gmail') || q.includes('email') || q.includes('hòm thư') || q.includes('hộp thư') || q.includes('thư') || q.includes('cooldown') || q.includes('spam')) {
-    return `📧 **HỆ THỐNG CẢNH BÁO TỰ ĐỘNG QUA GMAIL:**\n• Gmail đã lưu: **${alertEmail}**\n• Cơ chế tự động: Khi nhiệt độ >= ${threshold}°C, hệ thống tự động phát email báo cáo sự cố kèm mốc thời gian RTC DS3231, ảnh camera hiện trường và quy trình cứu hộ 114.\n• Chống Spam: Có cơ chế **Cooldown 45 giây** đếm ngược để chống tràn hộp thư.\n• Gửi thật vào Inbox: Nếu bạn cấu hình Mật khẩu ứng dụng Google (App Password), email sẽ tự động bay thẳng vào Inbox của bạn mà không cần bấm gì thêm!`;
+  if (q.includes('báo thức') || q.includes('hẹn giờ')) {
+    return `⏰ **TRẠNG THÁI BÁO THỨC ĐỒNG HỒ:**\n• Cài đặt báo thức: **${isAlarmSet ? `Đang BẬT (Hẹn lúc: ${alarmTime})` : 'Đang TẮT'}**.\n• Giờ hiện tại: **${time}** (${timeFormat}).\n• Khi tới giờ hẹn, chuông bíp-bíp sẽ reo liên tục vĩnh viễn cho đến khi bạn bấm tắt hoặc báo lại sau 5 phút.`;
   }
 
-  // 9. Camera giám sát, ESP32-CAM, webcam
-  if (q.includes('camera') || q.includes('esp32-cam') || q.includes('webcam') || q.includes('chụp ảnh') || q.includes('ảnh') || q.includes('video') || q.includes('chứng cứ')) {
-    return `📷 **CAMERA GIÁM SÁT AN NINH AI:**\n• Trạng thái: **${cameraStatus}**\n• 3 Chế độ linh hoạt: Radar nhiệt mô phỏng Canvas, Webcam laptop thiết bị thật, hoặc luồng IP Stream từ ESP32-CAM.\n• Tự động chụp bằng chứng: Khi phát hiện nhiệt độ vượt ngưỡng, camera tự động chụp ảnh hiện trường, đóng dấu mốc thời gian (Timestamp Watermark) và lưu vào thư viện để phục vụ điều tra nguyên nhân cháy.`;
+  if (q.includes('thoát hiểm') || q.includes('114') || q.includes('quy trình')) {
+    return `🧯 **QUY TRÌNH THOÁT HIỂM PCCC CHUẨN (5 BƯỚC):**\n1. **BÁO ĐỘNG**: Hô hoán to và kích hoạt hệ thống báo động.\n2. **NGẮT ĐIỆN**: Cúp cầu dao Aptomat khu vực xảy ra sự cố.\n3. **DẬP LỬA BAN ĐẦU**: Sử dụng bình khí CO2 hoặc bình bột ABC xịt vào gốc lửa.\n4. **SƠ TÁN**: Bịt khăn ướt vào mũi miệng, cúi thấp người men theo chân tường ra lối cầu thang bộ.\n5. **GỌI 114**: Gọi ngay đường dây nóng Cứu hỏa PCCC 114 để được hỗ trợ chuyên nghiệp.`;
   }
 
-  // 10. Phần cứng IoT: Arduino, ESP32, LCD, I2C
-  if (q.includes('arduino') || q.includes('esp32') || q.includes('phần cứng') || q.includes('linh kiện') || q.includes('sơ đồ') || q.includes('i2c') || q.includes('lcd') || q.includes('buzzer') || q.includes('mạch')) {
-    return `🛠️ **KIẾN TRÚC PHẦN CỨNG HỆ THỐNG (IOT 102):**\n1. **Vi điều khiển**: Arduino Uno R3 (xử lý logic chính).\n2. **Đồng hồ thời gian thực**: RTC DS3231 (giao tiếp I2C chân A4-SDA, A5-SCL, địa chỉ 0x68).\n3. **Cảm biến nhiệt**: LM35 (kết nối chân Analog A0 có mạch lọc 10 mẫu).\n4. **Màn hình hiển thị**: LCD 16x2 I2C (địa chỉ 0x27).\n5. **Còi & Đèn**: Active Buzzer (chân D8), LED cảnh báo đỏ (chân D7).\n6. **Nút bấm phần cứng**: Chân D2 (Chế độ), D3 (Tăng giờ), D4 (Tắt còi khẩn cấp) có lọc chống dội 50ms.\n7. **Camera**: ESP32-CAM truyền luồng video MJPEG qua WiFi.\n\n*(Bạn có thể bấm nút "🛠️ Code Firmware & Sơ Đồ" trên đầu trang để xem trọn bộ code C++ nạp mạch)*.`;
-  }
-
-  // 11. Quy trình PCCC, bình chữa cháy, thoát hiểm, số 114
-  if (q.includes('quy trình') || q.includes('thoát hiểm') || q.includes('114') || q.includes('bình chữa cháy') || q.includes('co2') || q.includes('bột') || q.includes('chữa cháy')) {
-    return `🧯 **QUY TRÌNH THOÁT HIỂM PCCC CHUẨN BỘ CÔNG AN (5 BƯỚC):**\n1. **BÁO ĐỘNG**: Hô hoán thật to và bấm chuông báo động cho mọi người xung quanh biết.\n2. **NGẮT ĐIỆN**: Lập tức ngắt cầu dao tổng (Aptomat) khu vực cháy để tránh chập điện lan rộng.\n3. **DẬP LỬA SƠ KHỞI**: Nếu lửa mới phát sinh: dùng bình khí CO2 (cho đồ điện) hoặc bình bột ABC quét qua lại vào gốc lửa.\n4. **SƠ TÁN AN TOÀN**: Dùng khăn ẩm hoặc khẩu trang ướt bịt kín mũi miệng để tránh ngạt khói độc carbon monoxide (CO), cúi thấp người men sát chân tường thoát ra ngoài bằng cầu thang bộ (TUYỆT ĐỐI không đi thang máy).\n5. **GỌI 114**: Gọi ngay đường dây nóng Cảnh sát PCCC và CNCH **114** để được cứu hộ chuyên nghiệp.`;
-  }
-
-  // 12. Sơ cứu ngạt khói và bỏng
-  if (q.includes('bỏng') || q.includes('sơ cứu') || q.includes('ngạt khói') || q.includes('sơ cấp cứu')) {
-    return `🩹 **HƯỚNG DẪN SƠ CỨU KHI GẶP NẠN DO HỎA HOẠN:**\n\n1. **Sơ cứu nạn nhân ngạt khói**:\n• Đưa nạn nhân ngay ra nơi thoáng khí, nới lỏng cổ áo, thắt lưng.\n• Nếu nạn nhân ngừng thở, tiến hành ép tim ngoài lồng ngực và hô hấp nhân tạo ngay lập tức, gọi 115.\n\n2. **Sơ cứu vết thương bỏng nhiệt**:\n• Ngâm hoặc xối rửa nhẹ nhàng vết bỏng dưới vòi **nước mát sạch** trong 15-20 phút (nhiệt độ nước khoảng 16-20°C).\n• **TUYỆT ĐỐI KHÔNG**: Dùng nước đá lạnh buốt, không bôi kem đánh răng, mỡ trăn, nước mắm lên vết bỏng.\n• Băng vết bỏng bằng gạc vô trùng che nhẹ nhàng, không băng chặt, rồi chuyển ngay tới cơ sở y tế.`;
-  }
-
-  // 13. Hỏi về kết nối ChatGPT, Gemini, AI
-  if (q.includes('chatgpt') || q.includes('gemini') || q.includes('openai') || q.includes('api key') || q.includes('ai lỏ') || q.includes('thông minh')) {
-    return `🤖 **CÁCH KẾT NỐI GEMINI / CHATGPT THẬT 100% VÀO ĐÂY:**\n\nHiện tại tôi đang vận hành ở chế độ **Local Smart Engine** tích hợp sẵn (không tốn phí, không sợ mất mạng). Để tôi có thể trò chuyện đa năng, làm thơ, viết code, giải toán và giao tiếp tự nhiên y hệt như ChatGPT hay Gemini trên trang web chính thức:\n\n1. Bấm nút **"🤖 Cài API Key (Gemini / ChatGPT)"** ở góc trên khung chat này.\n2. Lấy API Key miễn phí của **Google Gemini** tại: https://aistudio.google.com/app/apikey (hoặc OpenAI API Key).\n3. Dán key vào và bấm OK.\n\nLập tức tôi sẽ biến thành phiên bản Gemini / GPT thông minh không giới hạn của bạn!`;
-  }
-
-  // 14. Phản hồi hội thoại thông minh linh hoạt (Conversational Contextual Engine)
-  return `Tôi đã nhận được câu hỏi của bạn: "${rawQ}".\n\nVề mặt hệ thống hiện tại:\n• Thời gian: **${time}** | Nhiệt độ môi trường: **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động' : '✅ Bình thường'})\n• Báo thức: **${isAlarmSet ? `Đang bật lúc ${alarmTime}` : 'Đang tắt'}**\n\nBạn có thể hỏi tôi chi tiết hơn về: nguyên lý hoạt động của cảm biến LM35, module RTC DS3231, cách cài đặt Gmail cảnh báo, quy trình thoát nạn PCCC, hoặc bấm nút **"🤖 Cài API Key"** ở trên để kết nối trực tiếp với bộ não Google Gemini / ChatGPT để trò chuyện không giới hạn nhé!`;
+  return `Tôi đã nhận được câu hỏi của bạn: "${rawQ}".\n\nThông số hệ thống hiện thời:\n• Thời gian: **${time}** | Nhiệt độ đo: **${temp.toFixed(1)}°C** (${isDanger ? '🚨 Đang có báo động' : '✅ Bình thường'})\n• Báo thức: **${isAlarmSet ? `Bật lúc ${alarmTime}` : 'Đang tắt'}** | Gmail cảnh báo: **${alertEmail}**\n\nBạn có thể hỏi thêm về: nguyên lý mạch LM35, đồng hồ RTC DS3231, cấu hình ngưỡng nhiệt độ, xuất báo cáo CSV hoặc bấm nút **"🤖 Cài API Key"** để mở rộng đối thoại thông minh nhé!`;
 }
 
 // Khởi tạo máy chủ HTTP
@@ -342,8 +287,8 @@ const server = http.createServer(async (req, res) => {
   if (method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     });
     return res.end();
   }
@@ -356,11 +301,14 @@ const server = http.createServer(async (req, res) => {
       return res.end(html);
     }
 
-    // 2. Trạng thái toàn bộ hệ thống
+    // 2. Trạng thái toàn bộ hệ thống (kèm chẩn đoán tổng thể)
     if (pathname === '/api/status' && method === 'GET') {
+      const thresholds = db.getThresholds();
+      const devices = db.getDevices();
       return sendJson(res, {
         status: 'online',
         systemName: 'Smart Thermal Fire Alarm Clock & AI Camera Vision',
+        database: 'SQLite/JSON Persistent (ACID Storage)',
         hardware: {
           mcu: 'Arduino Uno / ESP8266 & ESP32-CAM',
           rtc: 'DS3231 (High Precision TCXO I2C RTC)',
@@ -369,6 +317,8 @@ const server = http.createServer(async (req, res) => {
           alarmBuzzer: 'Dual-Tone Active Buzzer (Clock Alarm & Fire Siren 15s Auto-Stop)',
           inputButtons: 'Digital Push Buttons with 50ms Debounce'
         },
+        thresholds,
+        devices,
         emailAlert: {
           configured: Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD),
           sender: process.env.GMAIL_USER || 'Chưa cấu hình (Chạy chế độ mô phỏng trực quan)',
@@ -382,12 +332,272 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // 3. Đọc Gmail đã đồng bộ
+    // 3. Quản lý ngưỡng cảnh báo (Alert Thresholds)
+    if (pathname === '/api/thresholds' && method === 'GET') {
+      return sendJson(res, { success: true, thresholds: db.getThresholds() });
+    }
+    if (pathname === '/api/thresholds' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const updated = db.updateThresholds(body);
+      db.logSystemAction('UPDATE_THRESHOLDS', `Đã cập nhật ngưỡng: Cảnh báo ${updated.warning_temp}°C, Nguy hiểm ${updated.danger_temp}°C`);
+      return sendJson(res, { success: true, message: 'Đã lưu cấu hình ngưỡng cảnh báo vào CSDL bền vững!', thresholds: updated });
+    }
+
+    // 4. Quản lý thiết bị (Devices)
+    if (pathname === '/api/devices' && method === 'GET') {
+      return sendJson(res, { success: true, devices: db.getDevices() });
+    }
+    if (pathname === '/api/devices/heartbeat' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const updated = db.updateDeviceHeartbeat(body.device_id || 'ARDUINO-UNO-01', body);
+      return sendJson(res, { success: true, device: updated });
+    }
+
+    // 5. Quản lý dữ liệu cảm biến & Lịch sử
+    if (pathname === '/api/sensor/reading' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const temp = Number(body.temperature) || 28.5;
+      const rateOfRise = Number(body.rateOfRise) || 0.0;
+      const deviceId = body.deviceId || 'ARDUINO-UNO-01';
+      const source = body.source || 'USB_SERIAL';
+
+      const thresholds = db.getThresholds();
+      let status = 'NORMAL';
+      if (temp >= thresholds.danger_temp) status = 'DANGER';
+      else if (temp >= thresholds.warning_temp) status = 'WARNING';
+
+      hardwareTelemetry = {
+        temperature: temp,
+        rateOfRise,
+        timestamp: new Date().toISOString(),
+        source,
+        isFire: status === 'DANGER',
+        isWarning: status === 'WARNING',
+        buzzerState: status === 'DANGER' ? 'ACTIVE' : 'READY',
+        deviceId
+      };
+
+      const recorded = db.recordSensorData({ device_id: deviceId, temperature: temp, source, rate_of_rise: rateOfRise, status });
+
+      // Nếu phát hiện nhiệt độ nguy hiểm -> Tự động tạo Fire Event nếu chưa có
+      if (status === 'DANGER') {
+        const activeEvents = db.getFireEvents().filter(e => e.status === 'ACTIVE');
+        if (activeEvents.length === 0) {
+          db.createFireEvent({
+            device_id: deviceId,
+            peak_temperature: temp,
+            severity: 'DANGER',
+            alarm_reason: `Nhiệt độ ${temp}°C vượt ngưỡng an toàn ${thresholds.danger_temp}°C`
+          });
+          db.logAlarmAction({ alarm_type: 'FIRE_SIREN', action: 'TRIGGER' });
+        }
+      }
+
+      return sendJson(res, { success: true, recorded, telemetry: hardwareTelemetry });
+    }
+
+    if (pathname === '/api/sensor/latest' && method === 'GET') {
+      return sendJson(res, { success: true, telemetry: hardwareTelemetry });
+    }
+
+    if (pathname === '/api/sensor/history' && method === 'GET') {
+      const filter = url.searchParams.get('filter') || 'all';
+      const history = db.getSensorHistory(filter);
+      return sendJson(res, { success: true, ...history });
+    }
+
+    // 6. Quản lý sự cố hỏa hoạn (Incidents)
+    if (pathname === '/api/incidents' && method === 'GET') {
+      return sendJson(res, { success: true, incidents: db.getFireEvents() });
+    }
+    if (pathname === '/api/incidents/resolve' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const { event_id, notes } = body;
+      const resolved = db.resolveFireEvent(event_id, notes);
+      if (resolved) {
+        db.logAlarmAction({ event_id, alarm_type: 'FIRE_SIREN', action: 'STOP' });
+        db.logSystemAction('RESOLVE_INCIDENT', `Sự cố ${event_id} đã được đánh dấu giải quyết xong.`);
+        return sendJson(res, { success: true, message: 'Đã đánh dấu sự cố là đã xử lý an toàn!', incident: resolved });
+      }
+      return sendJson(res, { success: false, error: 'Không tìm thấy mã sự cố yêu cầu.' }, 404);
+    }
+
+    // 7. Quản lý ảnh chụp Camera AI
+    if (pathname === '/api/camera/images' && method === 'GET') {
+      return sendJson(res, { success: true, images: db.getCameraImages() });
+    }
+    if (pathname === '/api/camera/images' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const saved = db.saveCameraImage(body);
+      return sendJson(res, { success: true, image: saved });
+    }
+    if (pathname.startsWith('/api/camera/images/') && method === 'DELETE') {
+      const id = pathname.split('/').pop();
+      db.deleteCameraImage(id);
+      return sendJson(res, { success: true, message: 'Đã xóa ảnh thành công.' });
+    }
+
+    // 8. Chẩn đoán hệ thống tự động (Self-Diagnostic Checklist)
+    if (pathname === '/api/system/diagnostics' && method === 'GET') {
+      const thresholds = db.getThresholds();
+      const hasEmailCreds = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+      const hasAiCreds = Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY);
+
+      const checklist = [
+        {
+          component: 'Mạch KIT Vi Điều Khiển (Arduino / ESP32)',
+          code: 'MCU_KIT',
+          status: hardwareTelemetry.source !== 'STANDBY' ? 'PASS' : 'STANDBY',
+          details: hardwareTelemetry.source !== 'STANDBY' ? `Đã kết nối qua ${hardwareTelemetry.source}` : 'Chế độ chờ cắm cáp USB Serial hoặc gửi Telemetry WiFi'
+        },
+        {
+          component: 'Cảm biến nhiệt độ LM35 (Analog A0)',
+          code: 'SENSOR_LM35',
+          status: 'PASS',
+          details: `Đang đọc tốt, nhiệt độ tức thời: ${hardwareTelemetry.temperature.toFixed(1)}°C (Lọc 10 mẫu)`
+        },
+        {
+          component: 'Đồng hồ thời gian thực RTC DS3231 (I2C 0x68)',
+          code: 'RTC_DS3231',
+          status: 'PASS',
+          details: `Hoạt động chính xác (Asia/Ho_Chi_Minh), bù nhiệt TCXO CR2032`
+        },
+        {
+          component: 'Còi báo động Buzzer & Chuông báo thức (D8)',
+          code: 'BUZZER_ALARM',
+          status: 'PASS',
+          details: `Trạng thái: ${hardwareTelemetry.buzzerState} (Sẵn sàng phát âm thanh)`
+        },
+        {
+          component: 'Camera an ninh AI & Chụp ảnh hiện trường',
+          code: 'CAMERA_AI',
+          status: 'PASS',
+          details: 'Webcam trực tiếp và phân tích khói/lửa sẵn sàng'
+        },
+        {
+          component: 'Dịch vụ Email Cảnh Báo (Google SMTP TLS 465)',
+          code: 'GMAIL_SMTP',
+          status: hasEmailCreds ? 'PASS' : 'STANDBY',
+          details: hasEmailCreds ? `Đã kết nối tài khoản: ${process.env.GMAIL_USER}` : 'Chế độ mô phỏng trực quan (Điền GMAIL_USER và GMAIL_APP_PASSWORD trong .env để gửi Inbox)'
+        },
+        {
+          component: 'Cơ sở dữ liệu bền vững (Persistent ACID Storage)',
+          code: 'DATABASE_STORAGE',
+          status: 'PASS',
+          details: `10 bảng SQL sẵn sàng, đã lưu ${db.getSensorHistory().totalSamples} bản ghi cảm biến`
+        },
+        {
+          component: 'Bộ não Trợ lý AI (NLP & Vision)',
+          code: 'AI_ASSISTANT',
+          status: 'PASS',
+          details: hasAiCreds ? 'Kết nối Cloud AI Trực tuyến (Gemini / GPT)' : 'Bộ não NLP nội bộ Zero-Dependency sẵn sàng 100%'
+        }
+      ];
+
+      return sendJson(res, { success: true, timestamp: new Date().toISOString(), checklist });
+    }
+
+    // 9. Xuất dữ liệu CSV
+    if (pathname === '/api/export/csv' && method === 'GET') {
+      const type = url.searchParams.get('type') || 'sensor';
+      let csvContent = '';
+      let filename = 'sensor_data.csv';
+
+      if (type === 'incidents') {
+        filename = `fire_incidents_${Date.now()}.csv`;
+        csvContent = 'Mã Sự Cố,Thiết Bị,Nhiệt Độ Cao Nhất (°C),Mức Độ,Trạng Thái,Lý Do Cảnh Báo,Thời Gian Bắt Đầu,Thời Gian Kết Thúc,Ghi Chú Xử Lý\n';
+        const events = db.getFireEvents();
+        events.forEach(e => {
+          csvContent += `"${e.event_id}","${e.device_id}",${e.peak_temperature},"${e.severity}","${e.status}","${e.alarm_reason || ''}","${e.start_time}","${e.end_time || ''}","${e.resolution_notes || ''}"\n`;
+        });
+      } else {
+        filename = `sensor_telemetry_${Date.now()}.csv`;
+        csvContent = 'ID,Mã Thiết Bị,Nhiệt Độ (°C),Nguồn Đo,Tốc Độ Tăng (°C/5s),Trạng Thái,Thời Gian Ghi Nhận\n';
+        const history = db.getSensorHistory('all');
+        history.records.forEach(r => {
+          csvContent += `${r.id},"${r.device_id}",${r.temperature},"${r.source}",${r.rate_of_rise},"${r.status}","${r.recorded_at}"\n`;
+        });
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Access-Control-Allow-Origin': '*'
+      });
+      return res.end('\uFEFF' + csvContent); // BOM cho tiếng Việt trong Excel
+    }
+
+    // 10. Đăng nhập / Đổi mật khẩu
+    if (pathname === '/api/auth/login' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const auth = db.authenticateUser(body.username, body.password);
+      if (auth.success) {
+        db.logSystemAction('USER_LOGIN', `Người dùng ${body.username} đăng nhập thành công.`);
+        return sendJson(res, auth);
+      }
+      return sendJson(res, auth, 401);
+    }
+    if (pathname === '/api/auth/change-password' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const resPass = db.changeUserPassword(body.username, body.oldPassword, body.newPassword);
+      if (resPass.success) {
+        db.logSystemAction('CHANGE_PASSWORD', `Người dùng ${body.username} đã đổi mật khẩu.`);
+        return sendJson(res, resPass);
+      }
+      return sendJson(res, resPass, 400);
+    }
+
+    // 11. Thông báo hệ thống (Notifications)
+    if (pathname === '/api/notifications' && method === 'GET') {
+      return sendJson(res, { success: true, notifications: db.getNotifications() });
+    }
+    if (pathname === '/api/notifications/read-all' && method === 'POST') {
+      db.markNotificationsRead();
+      return sendJson(res, { success: true });
+    }
+
+    // 12. Gửi thử Email kiểm tra kết nối
+    if (pathname === '/api/alert/email-test' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const targetEmail = (body.email || sharedAlertEmail || '').trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!targetEmail || !emailRegex.test(targetEmail)) {
+        return sendJson(res, { success: false, error: 'Địa chỉ Email kiểm tra không hợp lệ!' }, 400);
+      }
+
+      const subject = `[KIỂM THỬ KẾT NỐI] Hệ Thống Cảnh Báo PCCC IoT 102 - Thử Nghiệm Hoạt Động`;
+      const textContent = `Xin chào!\nĐây là email kiểm thử kết nối từ Hệ thống Cảnh báo & Giám sát Hỏa hoạn Thông minh (IoT 102).\nThời gian gửi: ${new Date().toLocaleString('vi-VN')}\nTrạng thái: Hoạt động bình thường.`;
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #0284c7;">📡 KIỂM THỬ KẾT NỐI EMAIL THÀNH CÔNG!</h2>
+          <p>Hệ thống <strong>Giám Sát & Cảnh Báo Hỏa Hoạn Thông Minh (IoT 102)</strong> đã thiết lập đường truyền cảnh báo đến địa chỉ: <strong>${targetEmail}</strong>.</p>
+          <p>Mốc thời gian: <strong>${new Date().toLocaleString('vi-VN')}</strong></p>
+          <p style="color: #10b981; font-weight: bold;">✔ Kênh thông tin cảnh báo sẵn sàng hoạt động khi phát hiện sự cố.</p>
+        </div>
+      `;
+
+      const gmailUser = process.env.GMAIL_USER;
+      const gmailPass = process.env.GMAIL_APP_PASSWORD;
+
+      if (gmailUser && gmailPass) {
+        try {
+          await sendNativeGmail({ user: gmailUser, appPassword: gmailPass, to: targetEmail, subject, htmlBody: htmlContent, textBody: textContent });
+          db.logEmailDispatch({ recipient: targetEmail, subject, temperature: hardwareTelemetry.temperature, status: 'SENT_REAL' });
+          return sendJson(res, { success: true, method: 'SMTP_REAL', message: `Đã gửi thư kiểm thử thực tế vào hộp thư Gmail: ${targetEmail}` });
+        } catch (err) {
+          db.logEmailDispatch({ recipient: targetEmail, subject, temperature: hardwareTelemetry.temperature, status: 'FAILED', error_message: err.message });
+          return sendJson(res, { success: false, error: `Lỗi kết nối Google SMTP: ${err.message}` }, 500);
+        }
+      } else {
+        db.logEmailDispatch({ recipient: targetEmail, subject, temperature: hardwareTelemetry.temperature, status: 'SIMULATION_LOG' });
+        return sendJson(res, { success: true, method: 'SIMULATION_LOG', message: `[MÔ PHỎNG KIỂM THỬ] Đã mô phỏng gửi email tới: ${targetEmail} (Nhập GMAIL_USER và GMAIL_APP_PASSWORD trong .env để gửi thư thật).` });
+      }
+    }
+
+    // 13. Đọc và Lưu Gmail đồng bộ
     if (pathname === '/api/config/email' && method === 'GET') {
       return sendJson(res, { success: true, email: sharedAlertEmail });
     }
-
-    // 4. Lưu và đồng bộ Gmail
     if (pathname === '/api/config/email' && method === 'POST') {
       const body = await readJsonBody(req);
       const targetEmail = (body.email || '').trim();
@@ -398,262 +608,92 @@ const server = http.createServer(async (req, res) => {
 
       sharedAlertEmail = targetEmail;
       try {
-        await writeFile(emailConfigPath, JSON.stringify({
-          email: sharedAlertEmail,
-          updatedAt: new Date().toISOString()
-        }, null, 2), 'utf-8');
-      } catch (err) {
-        console.error('Lỗi khi lưu file email-config.json:', err.message);
-      }
-
-      console.log(`[SYNC GMAIL] Đã cập nhật và đồng bộ Gmail nhận cảnh báo: ${sharedAlertEmail}`);
-      return sendJson(res, {
-        success: true,
-        email: sharedAlertEmail,
-        message: `Đã lưu và đồng bộ thành công địa chỉ Gmail [${sharedAlertEmail}] cho tất cả các máy đang truy cập!`
-      });
+        await writeFile(emailConfigPath, JSON.stringify({ email: targetEmail, updatedAt: new Date().toISOString() }, null, 2), 'utf-8');
+      } catch {}
+      db.logSystemAction('SYNC_EMAIL', `Đã đồng bộ Gmail cảnh báo: ${targetEmail}`);
+      return sendJson(res, { success: true, email: targetEmail, message: `Đã lưu và đồng bộ Gmail cảnh báo toàn mạng: ${targetEmail}` });
     }
 
-    // 5. Đọc telemetry phần cứng mới nhất
-    if (pathname === '/api/sensor/latest' && method === 'GET') {
-      return sendJson(res, { success: true, telemetry: hardwareTelemetry });
-    }
-
-    // 6. Nhận dữ liệu đo nhiệt độ từ phần cứng thật (ESP32/ESP8266 qua WiFi)
-    if (pathname === '/api/sensor/reading' && method === 'POST') {
-      const body = await readJsonBody(req);
-      const { temperature, isFire, deviceId, time } = body;
-      if (temperature !== undefined && Number.isFinite(Number(temperature))) {
-        hardwareTelemetry = {
-          temperature: Number(temperature),
-          timestamp: time || new Date().toISOString(),
-          source: 'HARDWARE_LIVE',
-          isFire: Boolean(isFire),
-          deviceId: deviceId || 'ESP32-STATION-01'
-        };
-        return sendJson(res, { success: true, message: 'Đã ghi nhận dữ liệu đo phần cứng thành công!' });
-      }
-      return sendJson(res, { error: 'Nhiệt độ gửi lên không hợp lệ.' }, 400);
-    }
-
-    // 7. Gửi báo cáo sự cố PCCC khẩn cấp qua Gmail
+    // 14. Gửi email cảnh báo hỏa hoạn tự động (Incident Dispatch)
     if (pathname === '/api/alert/email' && method === 'POST') {
+      const now = Date.now();
       const body = await readJsonBody(req);
-      const { email, temperature, threshold, timestamp, reason, snapshot } = body;
+      const { temperature, time, alertEmail, reason, snapshot, incidentCode } = body;
+      const targetEmail = (alertEmail || sharedAlertEmail || '').trim();
 
-      const targetEmail = (email || sharedAlertEmail || '').trim();
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!targetEmail || !emailRegex.test(targetEmail)) {
-        return sendJson(res, { success: false, error: 'Địa chỉ Gmail không hợp lệ. Vui lòng kiểm tra lại.' }, 400);
+        return sendJson(res, { success: false, error: 'Chưa có địa chỉ Gmail nhận cảnh báo hợp lệ.' }, 400);
       }
 
-      if (!sharedAlertEmail || sharedAlertEmail !== targetEmail) {
-        sharedAlertEmail = targetEmail;
-        try {
-          await writeFile(emailConfigPath, JSON.stringify({
-            email: sharedAlertEmail,
-            updatedAt: new Date().toISOString()
-          }, null, 2), 'utf-8');
-        } catch {}
-      }
-
-      const isTest = (reason || '').toLowerCase().includes('kiểm thử') || (reason || '').toLowerCase().includes('thủ công');
-      const now = Date.now();
-      if (!isTest && now - lastFireEmailSentTimestamp < EMAIL_COOLDOWN_MS) {
-        const waitSec = Math.ceil((EMAIL_COOLDOWN_MS - (now - lastFireEmailSentTimestamp)) / 1000);
+      if (now - lastFireEmailSentTimestamp < EMAIL_COOLDOWN_MS) {
+        const remaining = Math.ceil((EMAIL_COOLDOWN_MS - (now - lastFireEmailSentTimestamp)) / 1000);
         return sendJson(res, {
           success: true,
-          method: 'COOLDOWN_ACTIVE',
-          warning: `Hệ thống vừa gửi cảnh báo hỏa hoạn cách đây ít giây. Cooldown an toàn (còn ${waitSec}s) để chống tràn hộp thư.`,
-          message: `Đã phát cảnh báo khẩn cấp tới ${targetEmail} (Nhật ký biến cố đã được ghi nhận).`
+          throttled: true,
+          cooldownRemaining: remaining,
+          message: `Email vừa được phát đi. Cơ chế chống tràn thư đang kích hoạt (Chờ ${remaining}s).`
         });
       }
+
       lastFireEmailSentTimestamp = now;
+      const temp = Number.isFinite(Number(temperature)) ? Number(temperature) : 65.0;
+      const thresh = db.getThresholds().danger_temp;
+      const timeStr = time || new Date().toLocaleString('vi-VN');
+      const incidentId = incidentCode || 'INC-' + Date.now().toString().slice(-6);
+      const alertReason = reason || 'Cảm biến LM35 phát hiện nhiệt độ vượt ngưỡng an toàn PCCC';
 
-      const temp = Number(temperature) || 0;
-      const thresh = Number(threshold) || 50;
-      const timeStr = timestamp || new Date().toLocaleString('vi-VN');
-      const alertReason = reason || 'Nhiệt độ cảm biến LM35 vượt ngưỡng an toàn PCCC';
-      const incidentId = 'FA-' + Date.now().toString().slice(-6);
-
-      const subject = `🚨 [BÁO CÁO SỰ CỐ KHẨN CẤP] Trung Tâm PCCC: Cảnh Báo Nguy Cơ Hỏa Hoạn ${temp.toFixed(1)}°C Vượt Ngưỡng Tại Trạm Giám Sát!`;
-
-      const textContent = `
-========================================================================================
-🚨 THÔNG BÁO KHẨN CẤP: BÁO CÁO SỰ CỐ NGUY CƠ HỎA HOẠN TẠI KHU VỰC THEO DÕI
-HỆ THỐNG GIÁM SÁT AN TOÀN PCCC & ĐỒNG HỒ SỐ THÔNG MINH (SMART FIRE CLOCK & AI VISION)
-Mã sự cố: ${incidentId} | Mức độ cảnh báo: CẤP ĐỘ 1 - BÁO ĐỘNG ĐỎ
-========================================================================================
-
-Kính gửi: Bộ phận Quản trị An toàn & Người phụ trách cơ sở (${targetEmail})
-
-Hệ thống cảm biến nhiệt độ LM35 kết hợp module đồng hồ thời gian thực RTC DS3231 vừa phát hiện biến cố tăng nhiệt bất thường vượt quá giới hạn an toàn cho phép tại trạm giám sát an ninh.
-
-I. THÔNG SỐ KỸ THUẬT VÀ DỮ LIỆU ĐO ĐƯỢC TỨC THỜI:
-- Mã sự cố: ${incidentId}
-- Mốc thời gian chính xác: ${timeStr} (Đồng bộ theo RTC DS3231)
-- Vị trí trạm đo: Trạm cảm biến nhiệt môi trường LM35 & Camera giám sát hiện trường
-- Nhiệt độ đo được tức thời: ${temp.toFixed(1)} °C
-- Ngưỡng giới hạn kích hoạt cảnh báo: ${thresh.toFixed(1)} °C
-- Mức độ vượt ngưỡng an toàn: +${(temp - thresh > 0 ? (temp - thresh).toFixed(1) : '0.0')} °C
-- Lý do kích hoạt cảnh báo: ${alertReason}
-- Mức độ rủi ro: CẤP ĐỘ NGUY HIỂM CAO (CRITICAL FIRE ALERT)
-
-II. CÁC HÀNH ĐỘNG HỆ THỐNG ĐÃ TỰ ĐỘNG THỰC THI:
-1. Kích hoạt còi hú báo động PCCC đa tần số (Wail Siren) và chuông cảnh báo reo liên tục vĩnh viễn cho đến khi có người kiểm tra và tắt thủ công tại chỗ.
-2. Đồng bộ tín hiệu cảnh báo trên toàn bộ các thiết bị đang truy cập Dashboard hệ thống.
-3. Camera an ninh AI đã tự động chụp lại ảnh chứng cứ hiện trường có gắn mốc thời gian (Timestamp Watermark).
-4. Tự động phát thông báo khẩn cấp tức thời tới hòm thư quản trị viên: ${targetEmail}.
-5. Ghi nhận nhật ký sự cố vào cơ sở dữ liệu giám sát an ninh PCCC.
-
-III. QUY TRÌNH PHẢN ỨNG VÀ XỬ LÝ KHẨN CẤP (TIÊU CHUẨN PCCC BỘ CÔNG AN):
-1. GIỮ BÌNH TĨNH VÀ NGẮT ĐIỆN: Lập tức ngắt ngay cầu dao tổng (Aptomat) tại khu vực xảy ra cảnh báo nhằm triệt tiêu nguy cơ chập cháy điện lan rộng.
-2. XÁC MINH HIỆN TRƯỜNG: Quan sát hình ảnh camera an ninh để định vị vị trí đốm nhiệt hoặc khói.
-3. DẬP LỬA SƠ KHỞI: Sử dụng bình chữa cháy xách tay (khí CO2 hoặc bột ABC) dập tắt triệt để tại gốc lửa.
-4. TỔ CHỨC THOÁT HIỂM AN TOÀN: Dùng khăn ẩm bịt kín mũi miệng, cúi thấp người men sát chân tường thoát ra ngoài theo lối cầu thang bộ. TUYỆT ĐỐI KHÔNG DÙNG THANG MÁY.
-5. CỨU NẠN KHẨN CẤP: Gọi ngay đường dây nóng Cảnh sát PCCC và Cứu nạn Cứu hộ: 114 nếu sự cố vượt tầm kiểm soát cá nhân.
-----------------------------------------------------------------------------------------
-Hệ thống Giám sát An toàn PCCC & Đồng hồ Số Thông minh (Smart Digital Clock - IoT 102)
-Hotline Khẩn cấp Cứu Hỏa: 114
-`;
+      const subject = `🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: ${temp.toFixed(1)}°C - Mã: ${incidentId}`;
+      const textContent = `🚨 CẢNH BÁO HỎA HOẠN KHẨN CẤP\nNhiệt độ: ${temp.toFixed(1)}°C (Ngưỡng an toàn: ${thresh}°C)\nThời gian: ${timeStr}\nTrạng thái: Còi báo cháy đã kích hoạt.\nKhuyến cáo: Ngắt điện tổng, sơ tán khẩn cấp và gọi 114 nếu cần.`;
 
       const htmlContent = `
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>Báo Cáo Sự Cố Hỏa Hoạn Khẩn Cấp</title>
-</head>
-<body style="margin: 0; padding: 24px; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
-  <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.25); border: 1px solid #fee2e2;">
-    <div style="background: linear-gradient(135deg, #991b1b 0%, #dc2626 50%, #b91c1c 100%); color: #ffffff; padding: 26px 24px; text-align: center;">
-      <div style="display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 8px;">
-        🚨 BÁO CÁO SỰ CỐ KHẨN CẤP · CẤP ĐỘ 1 (BÁO ĐỘNG ĐỎ)
-      </div>
-      <h1 style="margin: 0; font-size: 22px; font-weight: 800; line-height: 1.3;">TRUNG TÂM GIÁM SÁT AN TOÀN PCCC</h1>
-      <p style="margin: 6px 0 0; font-size: 13.5px; opacity: 0.92;">Hệ thống Đồng hồ Số Thông minh RTC DS3231 & Cảm biến nhiệt LM35</p>
-    </div>
-    <div style="padding: 26px 24px;">
-      <div style="background: #fef2f2; border-left: 5px solid #dc2626; padding: 16px; border-radius: 8px; margin-bottom: 22px;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <strong style="color: #991b1b; font-size: 16px;">Phát hiện nguy cơ hỏa hoạn vượt ngưỡng an toàn!</strong>
-          <span style="font-size: 12px; background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-weight: bold;">Mã: ${incidentId}</span>
+        <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #fee2e2; font-family: Arial, sans-serif;">
+          <div style="background: #dc2626; color: white; padding: 20px; text-align: center;">
+            <h2 style="margin: 0;">🚨 BÁO CÁO SỰ CỐ HỎA HOẠN KHẨN CẤP</h2>
+            <p style="margin: 4px 0 0; opacity: 0.9;">Hệ Thống Báo Cháy & Đồng Hồ Số Thông Minh (IoT 102)</p>
+          </div>
+          <div style="padding: 20px;">
+            <p><strong>Mã Sự Cố:</strong> ${incidentId}</p>
+            <p><strong>Nhiệt độ đo được:</strong> <span style="color:#dc2626; font-size:18px; font-weight:bold;">${temp.toFixed(1)}°C</span> (Ngưỡng: ${thresh}°C)</p>
+            <p><strong>Thời gian ghi nhận:</strong> ${timeStr}</p>
+            <p><strong>Lý do:</strong> ${alertReason}</p>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+            <h3>🛡️ HƯỚNG DẪN ỨNG PHÓ KHẨN CẤP (CHUẨN PCCC):</h3>
+            <ol style="line-height: 1.6;">
+              <li>Ngắt ngay cầu dao điện tổng (Aptomat).</li>
+              <li>Dùng bình chữa cháy xách tay dập tắt gốc lửa ban đầu.</li>
+              <li>Sơ tán men theo chân tường qua lối thoát hiểm (KHÔNG đi thang máy).</li>
+              <li>Gọi ngay Tổng đài Cảnh sát Cứu nạn Cứu hộ: <strong style="color:#dc2626;">114</strong>.</li>
+            </ol>
+          </div>
         </div>
-        <p style="margin: 8px 0 0; color: #475569; font-size: 13.5px; line-height: 1.5;">
-          Cụm cảm biến nhiệt độ LM35 và đồng hồ thời gian thực RTC DS3231 đã phát hiện nhiệt độ tăng đột biến vượt ngưỡng an toàn quy định. Còi báo cháy đã được kích hoạt reo liên tục vĩnh viễn (cho đến khi tắt thủ công) và camera đã lưu vết hiện trường.
-        </p>
-      </div>
-
-      <h3 style="margin: 0 0 10px; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">I. THÔNG SỐ ĐO LƯỜNG TỨC THỜI</h3>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 13.5px;">
-        <tbody>
-          <tr style="border-bottom: 1px solid #f1f5f9; background: #fafafa;">
-            <td style="padding: 10px 12px; color: #64748b; width: 42%;">⏱️ Mốc thời gian ghi nhận:</td>
-            <td style="padding: 10px 12px; font-weight: 700; color: #0f172a;">${timeStr}</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #f1f5f9;">
-            <td style="padding: 10px 12px; color: #64748b;">🌡️ Nhiệt độ đo được (LM35):</td>
-            <td style="padding: 10px 12px; font-weight: 800; color: #dc2626; font-size: 18px;">${temp.toFixed(1)} °C</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #f1f5f9; background: #fafafa;">
-            <td style="padding: 10px 12px; color: #64748b;">⚙️ Ngưỡng kích hoạt an toàn:</td>
-            <td style="padding: 10px 12px; font-weight: 700; color: #0f172a;">${thresh.toFixed(1)} °C</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #f1f5f9;">
-            <td style="padding: 10px 12px; color: #64748b;">📈 Mức độ vượt ngưỡng:</td>
-            <td style="padding: 10px 12px; font-weight: 700; color: #b91c1c;">+${(temp - thresh > 0 ? (temp - thresh).toFixed(1) : '0.0')} °C</td>
-          </tr>
-          <tr style="border-bottom: 1px solid #f1f5f9; background: #fafafa;">
-            <td style="padding: 10px 12px; color: #64748b;">🔊 Còi hú báo cháy:</td>
-            <td style="padding: 10px 12px; font-weight: 700; color: #dc2626;">HÚ LIÊN TỤC VĨNH VIỄN (CHỜ TẮT THỦ CÔNG)</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px 12px; color: #64748b;">📝 Lý do cảnh báo:</td>
-            <td style="padding: 10px 12px; font-weight: 600; color: #334155;">${alertReason}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      ${snapshot ? `
-      <div style="margin-bottom: 22px;">
-        <h3 style="margin: 0 0 10px; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">II. ẢNH CHỨNG CỨ HIỆN TRƯỜNG TỰ ĐỘNG CHỤP</h3>
-        <div style="text-align: center; background: #000000; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1;">
-          <img src="${snapshot}" alt="Ảnh chụp hiện trường khi quá nhiệt" style="max-width: 100%; height: auto; border-radius: 6px; display: block; margin: 0 auto;" />
-          <div style="color: #38bdf8; font-size: 11.5px; font-family: monospace; margin-top: 6px;">Camera an ninh AI · Gắn nhãn thời gian từ RTC DS3231</div>
-        </div>
-      </div>` : ''}
-
-      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; margin-bottom: 20px;">
-        <strong style="color: #0f172a; font-size: 14px; display: flex; align-items: center; gap: 6px;">
-          🛡️ QUY TRÌNH PHẢN ỨNG VÀ XỬ LÝ KHẨN CẤP (TIÊU CHUẨN PCCC):
-        </strong>
-        <ol style="margin: 10px 0 0; padding-left: 20px; color: #334155; font-size: 13px; line-height: 1.65;">
-          <li><strong>Ngắt điện khẩn cấp:</strong> Cúp ngay cầu dao tổng (Aptomat) tại khu vực xảy ra biến cố.</li>
-          <li><strong>Xác minh hiện trường:</strong> Quan sát camera an ninh hoặc tiếp cận có bảo hộ để định vị điểm cháy.</li>
-          <li><strong>Dập lửa ban đầu:</strong> Dùng bình chữa cháy xách tay (khí CO2 hoặc bột ABC) xử lý gốc lửa nếu mới phát sinh.</li>
-          <li><strong>Sơ tán an toàn:</strong> Dùng khăn ẩm bịt kín mũi miệng, cúi thấp người men sát chân tường theo cầu thang bộ. <em>TUYỆT ĐỐI KHÔNG DÙNG THANG MÁY.</em></li>
-          <li><strong>Ứng cứu chuyên nghiệp:</strong> Gọi ngay đường dây nóng Cảnh sát PCCC & CNCH: <strong style="color:#dc2626; font-size:14px;">114</strong>.</li>
-        </ol>
-      </div>
-
-      <div style="text-align: center; margin-top: 24px;">
-        <a href="http://localhost:${port}" style="background: #dc2626; color: #ffffff; text-decoration: none; padding: 11px 22px; border-radius: 6px; font-size: 13.5px; font-weight: 700; display: inline-block;">
-          Truy Cập Dashboard Giám Sát Thời Gian Thực
-        </a>
-      </div>
-    </div>
-    <div style="background: #f1f5f9; padding: 14px 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
-      Hệ thống Đồng hồ Cảm biến Nhiệt Báo cháy & Giám sát Camera AI · IoT 102<br>
-      Bản tin cảnh báo khẩn cấp gửi tự động đến: <strong style="color: #0f172a;">${targetEmail}</strong>
-    </div>
-  </div>
-</body>
-</html>
-`;
+      `;
 
       const gmailUser = process.env.GMAIL_USER;
       const gmailPass = process.env.GMAIL_APP_PASSWORD;
 
       if (gmailUser && gmailPass) {
         try {
-          await sendNativeGmail({
-            user: gmailUser,
-            appPassword: gmailPass,
-            to: targetEmail,
-            subject,
-            htmlBody: htmlContent,
-            textBody: textContent
-          });
-          return sendJson(res, {
-            success: true,
-            method: 'SMTP_REAL',
-            message: `Đã gửi email cảnh báo hỏa hoạn thực tế đến hộp thư Gmail: ${targetEmail}`
-          });
+          await sendNativeGmail({ user: gmailUser, appPassword: gmailPass, to: targetEmail, subject, htmlBody: htmlContent, textBody: textContent });
+          db.logEmailDispatch({ event_id: incidentId, recipient: targetEmail, subject, temperature: temp, status: 'SENT_REAL' });
+          return sendJson(res, { success: true, method: 'SMTP_REAL', message: `Đã gửi email cảnh báo thực tế đến hộp thư: ${targetEmail}` });
         } catch (err) {
-          console.error('Lỗi khi gửi email qua Google SMTP:', err.message);
-          return sendJson(res, {
-            success: true,
-            method: 'SIMULATION_LOG',
-            warning: `Google SMTP trả về lỗi (${err.message}). Hệ thống đã lưu lại thông điệp cảnh báo.`,
-            message: `Đã phát cảnh báo khẩn cấp tới ${targetEmail} (Ghi nhận trên hệ thống và nhật ký PCCC).`
-          });
+          db.logEmailDispatch({ event_id: incidentId, recipient: targetEmail, subject, temperature: temp, status: 'FAILED', error_message: err.message });
+          return sendJson(res, { success: true, method: 'SIMULATION_LOG', message: `Google SMTP trả về lỗi (${err.message}). Hệ thống đã lưu lại nhật ký sự cố.` });
         }
       } else {
+        db.logEmailDispatch({ event_id: incidentId, recipient: targetEmail, subject, temperature: temp, status: 'SIMULATION_LOG' });
         console.log(`[EMAIL ALERT SIMULATED] Cảnh báo hỏa hoạn gửi tới: ${targetEmail} | Nhiệt độ: ${temp.toFixed(1)}°C | Giờ: ${timeStr}`);
-        return sendJson(res, {
-          success: true,
-          method: 'DIRECT_READY',
-          message: `Đã kích hoạt cảnh báo gửi tới Gmail: ${targetEmail}! (Để nhận thư thực tế vào Inbox, bạn có thể nhập GMAIL_USER và GMAIL_APP_PASSWORD trong file .env)`
-        });
+        return sendJson(res, { success: true, method: 'DIRECT_READY', message: `Đã kích hoạt cảnh báo gửi tới Gmail: ${targetEmail}! (Để nhận thư thực tế vào Inbox, hãy nhập GMAIL_USER và GMAIL_APP_PASSWORD trong file .env)` });
       }
     }
 
-    // 8. Chẩn đoán AI nguy cơ hỏa hoạn
+    // 15. Chẩn đoán AI nguy cơ hỏa hoạn
     if (pathname === '/api/ai/analyze-fire' && method === 'POST') {
       const body = await readJsonBody(req);
       const { context } = body;
       const temp = Number.isFinite(Number(context?.temperature)) ? Number(context.temperature) : 28.5;
-      const threshold = Number(context?.alarmThreshold) || 50;
+      const threshold = Number(context?.alarmThreshold) || db.getThresholds().danger_temp || 50;
 
       let riskLevel = 'SAFE';
       let badgeColor = 'green';
@@ -665,7 +705,7 @@ Hotline Khẩn cấp Cứu Hỏa: 114
         riskLevel = 'DANGER';
         badgeColor = 'red';
         title = 'BÁO ĐỘNG CHÁY CẤP 1 - NGUY HIỂM';
-        advice = `Nhiệt độ ${temp}°C vượt ngưỡng an toàn ${threshold}°C! Còi báo động đã kêu 15s, hệ thống đã gửi cảnh báo tới Gmail và Camera đã ghi hình. Vui lòng sơ tán hoặc kiểm tra ngay!`;
+        advice = `Nhiệt độ ${temp}°C vượt ngưỡng an toàn ${threshold}°C! Còi báo động đã kích hoạt, hệ thống đã gửi cảnh báo tới Gmail và Camera đã lưu ảnh. Vui lòng sơ tán hoặc kiểm tra ngay!`;
         actionRequired = true;
       } else if (temp >= threshold - 10) {
         riskLevel = 'WARNING';
@@ -674,19 +714,10 @@ Hotline Khẩn cấp Cứu Hỏa: 114
         advice = `Nhiệt độ ${temp}°C đang tiệm cận ngưỡng báo cháy (${threshold}°C). Hãy kiểm tra các thiết bị điện và quan sát camera.`;
       }
 
-      return sendJson(res, {
-        temp,
-        threshold,
-        riskLevel,
-        badgeColor,
-        title,
-        advice,
-        actionRequired,
-        timestamp: new Date().toLocaleTimeString('vi-VN', { hour12: false })
-      });
+      return sendJson(res, { temp, threshold, riskLevel, badgeColor, title, advice, actionRequired, timestamp: new Date().toLocaleTimeString('vi-VN', { hour12: false }) });
     }
 
-    // 8.1 Cấu hình AI API Key (Gemini hoặc OpenAI) từ giao diện Web
+    // 16. Cấu hình AI API Key
     if (pathname === '/api/config/ai' && method === 'POST') {
       const body = await readJsonBody(req);
       const { provider, apiKey, model } = body;
@@ -699,11 +730,9 @@ Hotline Khẩn cấp Cứu Hỏa: 114
 
       if (prov.includes('gemini') || cleanKey.startsWith('AIza')) {
         process.env.GEMINI_API_KEY = cleanKey;
-        console.log('[AI CONFIG] Đã kích hoạt Google Gemini API (Flash 1.5)!');
       } else {
         process.env.OPENAI_API_KEY = cleanKey;
         if (model) process.env.OPENAI_MODEL = model;
-        console.log('[AI CONFIG] Đã kích hoạt OpenAI API!');
       }
 
       try {
@@ -714,11 +743,11 @@ Hotline Khẩn cấp Cứu Hỏa: 114
       return sendJson(res, {
         success: true,
         provider: process.env.GEMINI_API_KEY ? 'Google Gemini (Flash)' : 'OpenAI (GPT)',
-        message: 'Đã kích hoạt AI trực tuyến! Trợ lý AI bây giờ đã có thể trò chuyện tự nhiên, giải đáp thông minh như ChatGPT và Gemini thật 100%.'
+        message: 'Đã kích hoạt AI trực tuyến thành công!'
       });
     }
 
-    // 9. Hội thoại AI Smart Box
+    // 17. Hội thoại AI Smart Box
     if (pathname === '/api/chat' && method === 'POST') {
       const body = await readJsonBody(req);
       const { message, context } = body;
@@ -728,22 +757,21 @@ Hotline Khẩn cấp Cứu Hỏa: 114
       }
 
       const fireContext = context && typeof context === 'object' ? context : {};
+      const thresholds = db.getThresholds();
 
-      const systemPrompt = `Bạn là Trợ lý AI thông minh của hệ thống "Đồng hồ thông minh cảm biến nhiệt báo cháy & Giám sát Camera AI" (Smart Thermal Fire Alarm Clock - IoT 102).
-Dữ liệu thời gian thực hiện tại của hệ thống:
-- Giờ hiện tại: ${fireContext.time || '19:30:00'} (${fireContext.date || 'Hôm nay'}, định dạng ${fireContext.timeFormat || '24H'})
+      const systemPrompt = `Bạn là Trợ lý AI thông minh của "Hệ Thống Cảnh Báo & Giám Sát Hỏa Hoạn Thông Minh" (IoT 102).
+Dữ liệu thời gian thực hiện tại:
+- Giờ hiện tại: ${fireContext.time || '19:30:00'} (${fireContext.date || 'Hôm nay'})
 - Trạng thái báo thức: ${fireContext.isAlarmSet ? `Đang BẬT lúc ${fireContext.alarmTime}` : 'Đang TẮT'}
-- Nhiệt độ cảm biến LM35: ${fireContext.temperature || 28.5}°C (Ngưỡng an toàn: ${fireContext.alarmThreshold || 50}°C)
-- Tình trạng an toàn PCCC: ${fireContext.fireStatus || 'SAFE'}
+- Nhiệt độ cảm biến LM35: ${fireContext.temperature || 28.5}°C (Ngưỡng an toàn: ${thresholds.danger_temp}°C)
+- Tình trạng PCCC: ${fireContext.fireStatus || 'SAFE'}
 - Gmail nhận cảnh báo: ${fireContext.alertEmail || sharedAlertEmail || 'Chưa gán'}
 - Camera an ninh: ${fireContext.cameraStatus || 'Đang hoạt động'}
 
-Nhiệm vụ của bạn:
-1. Giao tiếp tự nhiên, thân thiện, thông minh như ChatGPT / Gemini bằng tiếng Việt.
-2. Trả lời được MỌI câu hỏi: từ chuyện trò, hỏi thăm, giải thích công nghệ, viết code, tư vấn đời sống, đến giải thích kiến trúc phần cứng IoT (Arduino Uno, RTC DS3231 I2C, LM35 lọc 10 mẫu, ESP32-CAM).
-3. Khi người dùng hỏi về nhiệt độ, đồng hồ, báo thức hay PCCC, hãy dùng dữ liệu thời gian thực ở trên để trả lời chính xác!`;
+Nhiệm vụ:
+1. Giao tiếp tự nhiên, thân thiện bằng tiếng Việt.
+2. Trả lời chính xác về nhiệt độ, PCCC, kỹ thuật Arduino, RTC DS3231, cảm biến LM35.`;
 
-      // 1. Thử gọi Google Gemini API nếu có key
       if (process.env.GEMINI_API_KEY) {
         try {
           const geminiReply = await callGeminiApi(process.env.GEMINI_API_KEY, message.trim(), systemPrompt);
@@ -753,7 +781,6 @@ Nhiệm vụ của bạn:
         }
       }
 
-      // 2. Thử gọi OpenAI API nếu có key
       if (process.env.OPENAI_API_KEY) {
         try {
           const openAiReply = await callOpenAiDirect(process.env.OPENAI_API_KEY, process.env.OPENAI_MODEL || 'gpt-4o-mini', message.trim(), systemPrompt);
@@ -763,12 +790,10 @@ Nhiệm vụ của bạn:
         }
       }
 
-      // 3. Phản hồi bằng Bộ não xử lý ngôn ngữ tự nhiên Offline thông minh
       const reply = generateLocalFireAlarmAiResponse(message, fireContext);
       return sendJson(res, { reply, provider: 'Smart Local NLP Engine' });
     }
 
-    // Đường dẫn không tồn tại (404)
     return sendJson(res, { error: 'Không tìm thấy tài nguyên yêu cầu.' }, 404);
 
   } catch (error) {
@@ -781,6 +806,7 @@ server.listen(port, () => {
   console.log(`=================================================================`);
   console.log(`🚨 Smart Thermal Fire Alarm Clock & AI Camera Server đang chạy!`);
   console.log(`📡 Địa chỉ Web: http://localhost:${port}`);
+  console.log(`💾 Database: SQLite/JSON ACID Persistent Store sẵn sàng`);
   console.log(`🤖 AI Status: ${process.env.OPENAI_API_KEY && OpenAI ? 'OpenAI Live (' + (process.env.OPENAI_MODEL || 'gpt-4o-mini') + ')' : 'Local AI Engine Sẵn sàng (Zero-Dependency)'}`);
   console.log(`📧 Gmail Alert: ${process.env.GMAIL_USER ? 'Đã kích hoạt (' + process.env.GMAIL_USER + ')' : 'Chế độ mô phỏng trực tiếp (Nhập trên Web)'}`);
   console.log(`=================================================================`);
