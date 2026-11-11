@@ -3953,4 +3953,49 @@ if ('serial' in navigator) {
 </div>
 
 </body>
+<!-- 1. Nhúng thư viện Firebase (Phiên bản 8 dễ dùng nhất cho Web tĩnh) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+  // 2. Cấu hình Firebase (Điền API Key của bạn vào)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDAMGG9sbS9-l0uxti6MTxMOe-xsqCIYK4", 
+    databaseURL: "https://iot102nhom4-default-rtdb.firebaseio.com"
+  };
+  
+  // Khởi tạo ứng dụng Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // 3. Lắng nghe dữ liệu nhiệt độ liên tục từ Firebase
+  db.ref("/sensors/temperature").on("value", (snapshot) => {
+    const tempValue = snapshot.val();
+    
+    // Nếu có dữ liệu nhiệt độ gửi lên
+    if (tempValue !== null) {
+      // --- CẬP NHẬT SỐ NHIỆT ĐỘ LÊN WEB ---
+      // LƯU Ý: Sửa "id-nhiet-do" thành ID đúng của thẻ HTML đang chứa con số "30.6°C"
+      const textNhietDo = document.getElementById("id-nhiet-do");
+      if (textNhietDo) {
+        textNhietDo.innerText = tempValue.toFixed(1) + "°C";
+      }
+
+      // --- CẬP NHẬT TRẠNG THÁI BÁO CHÁY ---
+      // LƯU Ý: Sửa "id-trang-thai" thành ID đúng của cái nút "SYSTEM NORMAL"
+      const nutTrangThai = document.getElementById("id-trang-thai");
+      if (nutTrangThai) {
+        if (tempValue > 35.0) {
+          nutTrangThai.innerText = "🔥 BÁO CHÁY!";
+          nutTrangThai.style.backgroundColor = "red";
+          nutTrangThai.style.color = "white";
+        } else {
+          nutTrangThai.innerText = "SYSTEM NORMAL";
+          nutTrangThai.style.backgroundColor = "#e8f5e9"; // Màu nền xanh nhạt
+          nutTrangThai.style.color = "green"; // Chữ màu xanh lá
+        }
+      }
+    }
+  });
+</script>
 </html>
