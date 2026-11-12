@@ -60,7 +60,7 @@ const EMAIL_COOLDOWN_MS = 45000;
 /**
  * Gửi email cảnh báo trực tiếp qua Google SMTP (smtp.gmail.com:465) thuần Node.js TLS
  */
-function sendNativeGmail({ user, appPassword, to, subject, htmlBody, textBody }) {
+function sendNativeGmail({ user, appPassword, to, subject, htmlBody, textBody, imageAttachment }) {
   return new Promise((resolve, reject) => {
     const socket = tls.connect(465, 'smtp.gmail.com', { rejectUnauthorized: false }, () => {});
 
@@ -96,27 +96,72 @@ function sendNativeGmail({ user, appPassword, to, subject, htmlBody, textBody })
         socket.write(`DATA\r\n`);
       } else if (step === 7 && response.startsWith('354')) {
         step = 8;
-        const boundary = '----=_Part_' + Date.now();
-        const rawEmail = [
-          `From: "Smart Fire Alarm System" <${user}>`,
-          `To: <${to}>`,
-          `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
-          `MIME-Version: 1.0`,
-          `Content-Type: multipart/alternative; boundary="${boundary}"`,
-          ``,
-          `--${boundary}`,
-          `Content-Type: text/plain; charset=UTF-8`,
-          ``,
-          textBody,
-          ``,
-          `--${boundary}`,
-          `Content-Type: text/html; charset=UTF-8`,
-          ``,
-          htmlBody,
-          ``,
-          `--${boundary}--`,
-          `\r\n.\r\n`
-        ].join('\r\n');
+        let rawEmail = '';
+        if (imageAttachment && imageAttachment.base64) {
+          const relatedBoundary = '----=_Related_' + Date.now();
+          const altBoundary = '----=_Alt_' + Date.now();
+          const rawBase64 = imageAttachment.base64.replace(/\s+/g, '');
+          const chunkedBase64 = rawBase64.match(/.{1,76}/g)?.join('\r\n') || rawBase64;
+          const cid = imageAttachment.cid || 'fire_snapshot';
+          const filename = imageAttachment.filename || 'fire_snapshot.jpg';
+          const contentType = imageAttachment.contentType || 'image/jpeg';
+
+          rawEmail = [
+            `From: "Smart Fire Alarm System" <${user}>`,
+            `To: <${to}>`,
+            `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
+            `MIME-Version: 1.0`,
+            `Content-Type: multipart/related; boundary="${relatedBoundary}"`,
+            ``,
+            `--${relatedBoundary}`,
+            `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+            ``,
+            `--${altBoundary}`,
+            `Content-Type: text/plain; charset=UTF-8`,
+            ``,
+            textBody,
+            ``,
+            `--${altBoundary}`,
+            `Content-Type: text/html; charset=UTF-8`,
+            ``,
+            htmlBody,
+            ``,
+            `--${altBoundary}--`,
+            ``,
+            `--${relatedBoundary}`,
+            `Content-Type: ${contentType}; name="${filename}"`,
+            `Content-Transfer-Encoding: base64`,
+            `Content-ID: <${cid}>`,
+            `Content-Disposition: inline; filename="${filename}"`,
+            ``,
+            chunkedBase64,
+            ``,
+            `--${relatedBoundary}--`,
+            `\r\n.\r\n`
+          ].join('\r\n');
+        } else {
+          const boundary = '----=_Part_' + Date.now();
+          rawEmail = [
+            `From: "Smart Fire Alarm System" <${user}>`,
+            `To: <${to}>`,
+            `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
+            `MIME-Version: 1.0`,
+            `Content-Type: multipart/alternative; boundary="${boundary}"`,
+            ``,
+            `--${boundary}`,
+            `Content-Type: text/plain; charset=UTF-8`,
+            ``,
+            textBody,
+            ``,
+            `--${boundary}`,
+            `Content-Type: text/html; charset=UTF-8`,
+            ``,
+            htmlBody,
+            ``,
+            `--${boundary}--`,
+            `\r\n.\r\n`
+          ].join('\r\n');
+        }
         socket.write(rawEmail);
       } else if (step === 8 && response.startsWith('250')) {
         step = 9;
@@ -556,6 +601,45 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, { success: true });
     }
 
+    // 11b. Quản Lý Thành Viên Gia Đình (Family Members)
+    if (pathname === '/api/family' && method === 'GET') {
+      return sendJson(res, { success: true, members: db.getFamilyMembers() });
+    }
+    if (pathname === '/api/family' && method === 'POST') {
+      const body = await readJsonBody(req);
+      const name = (body.name || '').trim();
+      const email = (body.email || '').trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!name) {
+        return sendJson(res, { success: false, error: 'Họ tên thành viên không được để trống.' }, 400);
+      }
+      if (!email || !emailRegex.test(email)) {
+        return sendJson(res, { success: false, error: 'Địa chỉ Gmail không đúng định dạng.' }, 400);
+      }
+      const member = db.addFamilyMember(body);
+      db.logSystemAction('ADD_FAMILY_MEMBER', `Đã thêm thành viên gia đình: ${member.name} (${member.email})`);
+      return sendJson(res, { success: true, member, message: `Đã thêm thành viên ${member.name} vào danh sách nhận báo cháy gia đình!` });
+    }
+    if (pathname.startsWith('/api/family/') && (method === 'PUT' || method === 'PATCH')) {
+      const id = pathname.split('/').pop();
+      const body = await readJsonBody(req);
+      const updated = db.updateFamilyMember(id, body);
+      if (updated) {
+        db.logSystemAction('UPDATE_FAMILY_MEMBER', `Cập nhật thành viên ID ${id}: ${updated.name}`);
+        return sendJson(res, { success: true, member: updated, message: 'Đã cập nhật thông tin thành viên gia đình.' });
+      }
+      return sendJson(res, { success: false, error: 'Không tìm thấy thành viên yêu cầu.' }, 404);
+    }
+    if (pathname.startsWith('/api/family/') && method === 'DELETE') {
+      const id = pathname.split('/').pop();
+      const ok = db.deleteFamilyMember(id);
+      if (ok) {
+        db.logSystemAction('DELETE_FAMILY_MEMBER', `Đã xóa thành viên ID ${id} khỏi danh sách gia đình`);
+        return sendJson(res, { success: true, message: 'Đã xóa thành viên gia đình thành công.' });
+      }
+      return sendJson(res, { success: false, error: 'Không tìm thấy thành viên để xóa.' }, 404);
+    }
+
     // 12. Gửi thử Email kiểm tra kết nối
     if (pathname === '/api/alert/email-test' && method === 'POST') {
       const body = await readJsonBody(req);
@@ -614,25 +698,54 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, { success: true, email: targetEmail, message: `Đã lưu và đồng bộ Gmail cảnh báo toàn mạng: ${targetEmail}` });
     }
 
-    // 14. Gửi email cảnh báo hỏa hoạn tự động (Incident Dispatch)
+    // 14. Gửi email cảnh báo hỏa hoạn tự động đến tất cả thành viên trong gia đình kèm ảnh hiện trường
     if (pathname === '/api/alert/email' && method === 'POST') {
       const now = Date.now();
       const body = await readJsonBody(req);
-      const { temperature, time, alertEmail, reason, snapshot, incidentCode } = body;
-      const targetEmail = (alertEmail || sharedAlertEmail || '').trim();
+      const { temperature, time, alertEmail, reason, snapshot, incidentCode, force } = body;
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!targetEmail || !emailRegex.test(targetEmail)) {
-        return sendJson(res, { success: false, error: 'Chưa có địa chỉ Gmail nhận cảnh báo hợp lệ.' }, 400);
+      const activeMembers = db.getFamilyMembers().filter(m => m.is_active);
+      const recipients = [];
+
+      // 1. Thêm các thành viên gia đình đang kích hoạt
+      for (const m of activeMembers) {
+        if (m.email && emailRegex.test(m.email)) {
+          if (!recipients.some(r => r.email.toLowerCase() === m.email.toLowerCase())) {
+            recipients.push({
+              name: m.name || 'Thành viên gia đình',
+              relation: m.relation || 'Thành viên',
+              email: m.email.trim()
+            });
+          }
+        }
       }
 
-      if (now - lastFireEmailSentTimestamp < EMAIL_COOLDOWN_MS) {
+      // 2. Thêm email tùy chỉnh hoặc sharedAlertEmail nếu chưa có
+      const fallbackEmail = (alertEmail || sharedAlertEmail || '').trim();
+      if (fallbackEmail && emailRegex.test(fallbackEmail)) {
+        if (!recipients.some(r => r.email.toLowerCase() === fallbackEmail.toLowerCase())) {
+          recipients.unshift({
+            name: 'Chủ Hộ / Quản Trị Hệ Thống',
+            relation: 'Chủ Hộ',
+            email: fallbackEmail
+          });
+        }
+      }
+
+      if (recipients.length === 0) {
+        return sendJson(res, { success: false, error: 'Chưa có thành viên gia đình hoặc địa chỉ Gmail nhận cảnh báo hợp lệ nào.' }, 400);
+      }
+
+      // Kiểm tra Cooldown trừ khi có flag force (thử nghiệm)
+      if (!force && (now - lastFireEmailSentTimestamp < EMAIL_COOLDOWN_MS)) {
         const remaining = Math.ceil((EMAIL_COOLDOWN_MS - (now - lastFireEmailSentTimestamp)) / 1000);
         return sendJson(res, {
           success: true,
           throttled: true,
           cooldownRemaining: remaining,
-          message: `Email vừa được phát đi. Cơ chế chống tràn thư đang kích hoạt (Chờ ${remaining}s).`
+          recipientsCount: recipients.length,
+          message: `Email cảnh báo vừa được phát. Cơ chế chống tràn thư đang kích hoạt (Chờ ${remaining}s).`
         });
       }
 
@@ -643,49 +756,182 @@ const server = http.createServer(async (req, res) => {
       const incidentId = incidentCode || 'INC-' + Date.now().toString().slice(-6);
       const alertReason = reason || 'Cảm biến LM35 phát hiện nhiệt độ vượt ngưỡng an toàn PCCC';
 
-      const subject = `🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: ${temp.toFixed(1)}°C - Mã: ${incidentId}`;
-      const textContent = `🚨 CẢNH BÁO HỎA HOẠN KHẨN CẤP\nNhiệt độ: ${temp.toFixed(1)}°C (Ngưỡng an toàn: ${thresh}°C)\nThời gian: ${timeStr}\nTrạng thái: Còi báo cháy đã kích hoạt.\nKhuyến cáo: Ngắt điện tổng, sơ tán khẩn cấp và gọi 114 nếu cần.`;
+      // Xử lý ảnh chụp hiện trường từ Camera
+      let cleanBase64 = null;
+      if (typeof snapshot === 'string' && snapshot.includes('base64,')) {
+        cleanBase64 = snapshot.split('base64,')[1];
+      } else if (typeof snapshot === 'string' && snapshot.length > 50) {
+        cleanBase64 = snapshot;
+      }
 
-      const htmlContent = `
-        <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #fee2e2; font-family: Arial, sans-serif;">
-          <div style="background: #dc2626; color: white; padding: 20px; text-align: center;">
-            <h2 style="margin: 0;">🚨 BÁO CÁO SỰ CỐ HỎA HOẠN KHẨN CẤP</h2>
-            <p style="margin: 4px 0 0; opacity: 0.9;">Hệ Thống Báo Cháy & Đồng Hồ Số Thông Minh (IoT 102)</p>
-          </div>
-          <div style="padding: 20px;">
-            <p><strong>Mã Sự Cố:</strong> ${incidentId}</p>
-            <p><strong>Nhiệt độ đo được:</strong> <span style="color:#dc2626; font-size:18px; font-weight:bold;">${temp.toFixed(1)}°C</span> (Ngưỡng: ${thresh}°C)</p>
-            <p><strong>Thời gian ghi nhận:</strong> ${timeStr}</p>
-            <p><strong>Lý do:</strong> ${alertReason}</p>
-            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;">
-            <h3>🛡️ HƯỚNG DẪN ỨNG PHÓ KHẨN CẤP (CHUẨN PCCC):</h3>
-            <ol style="line-height: 1.6;">
-              <li>Ngắt ngay cầu dao điện tổng (Aptomat).</li>
-              <li>Dùng bình chữa cháy xách tay dập tắt gốc lửa ban đầu.</li>
-              <li>Sơ tán men theo chân tường qua lối thoát hiểm (KHÔNG đi thang máy).</li>
-              <li>Gọi ngay Tổng đài Cảnh sát Cứu nạn Cứu hộ: <strong style="color:#dc2626;">114</strong>.</li>
-            </ol>
-          </div>
-        </div>
-      `;
+      // Tự động lưu ảnh chụp hiện trường vào CSDL nếu có
+      if (cleanBase64) {
+        try {
+          db.saveCameraImage({
+            event_id: incidentId,
+            image_url: `data:image/jpeg;base64,${cleanBase64.slice(0, 200000)}`,
+            temperature: temp,
+            ai_detection: 'FLAME_DETECTED',
+            confidence: 98.2,
+            source: 'AUTO_CAMERA_FIRE_ALARM'
+          });
+        } catch (e) {
+          console.warn('[CAMERA] Không thể lưu snapshot vào CSDL:', e.message);
+        }
+      }
+
+      const imageAttachment = cleanBase64 ? {
+        filename: `fire_scene_${Date.now()}.jpg`,
+        contentType: 'image/jpeg',
+        cid: 'fire_snapshot',
+        base64: cleanBase64
+      } : null;
+
+      const subject = `🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: ${temp.toFixed(1)}°C - Mã: ${incidentId}`;
 
       const gmailUser = process.env.GMAIL_USER;
       const gmailPass = process.env.GMAIL_APP_PASSWORD;
+      const isRealSmtp = Boolean(gmailUser && gmailPass);
 
-      if (gmailUser && gmailPass) {
-        try {
-          await sendNativeGmail({ user: gmailUser, appPassword: gmailPass, to: targetEmail, subject, htmlBody: htmlContent, textBody: textContent });
-          db.logEmailDispatch({ event_id: incidentId, recipient: targetEmail, subject, temperature: temp, status: 'SENT_REAL' });
-          return sendJson(res, { success: true, method: 'SMTP_REAL', message: `Đã gửi email cảnh báo thực tế đến hộp thư: ${targetEmail}` });
-        } catch (err) {
-          db.logEmailDispatch({ event_id: incidentId, recipient: targetEmail, subject, temperature: temp, status: 'FAILED', error_message: err.message });
-          return sendJson(res, { success: true, method: 'SIMULATION_LOG', message: `Google SMTP trả về lỗi (${err.message}). Hệ thống đã lưu lại nhật ký sự cố.` });
+      const dispatchResults = [];
+
+      for (const rec of recipients) {
+        const textContent = [
+          `🚨 CẢNH BÁO HỎA HOẠN KHẨN CẤP GỬI GIA ĐÌNH 🚨`,
+          `Kính gửi: ${rec.name} (Quan hệ: ${rec.relation})`,
+          `Hệ thống phát hiện nhiệt độ môi trường vượt ngưỡng nguy hiểm!`,
+          `- Nhiệt độ đo được: ${temp.toFixed(1)}°C (Ngưỡng an toàn: ${thresh}°C)`,
+          `- Mốc thời gian RTC DS3231: ${timeStr}`,
+          `- Mã sự cố: ${incidentId}`,
+          `- Trạng thái: Còi báo cháy biến tần đang hú còi liên tục.`,
+          `- Camera AI: Đã tự động chụp lại hình ảnh hiện trường tại thời điểm phát hiện.`,
+          ``,
+          `🛡️ QUY TRÌNH PHẢN ỨNG KHẨN CẤP:`,
+          `1. Hô hoán mọi người xung quanh trong gia đình.`,
+          `2. Ngắt ngay cầu dao điện tổng (Aptomat).`,
+          `3. Dùng bình chữa cháy dập tắt gốc lửa nếu an toàn.`,
+          `4. Cúi thấp người, lấy khăn ướt che mũi miệng và thoát hiểm theo lối cầu thang bộ.`,
+          `5. Gọi ngay đường dây nóng Cứu hỏa PCCC: 114!`
+        ].join('\n');
+
+        const htmlContent = `
+          <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 2px solid #ef4444; font-family: Arial, 'Segoe UI', sans-serif;">
+            <div style="background: linear-gradient(135deg, #b91c1c, #dc2626); color: white; padding: 22px; text-align: center;">
+              <h2 style="margin: 0; font-size: 22px; letter-spacing: 0.5px;">🚨 BÁO ĐỘNG HỎA HOẠN KHẨN CẤP GIA ĐÌNH</h2>
+              <p style="margin: 6px 0 0; opacity: 0.95; font-size: 13px;">Hệ Thống Báo Cháy & Đồng Hồ Thông Minh IoT 102 - Tự Động Phát Cảnh Báo</p>
+            </div>
+            
+            <div style="padding: 24px; color: #1e293b;">
+              <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 4px; margin-bottom: 18px;">
+                <p style="margin: 0; font-size: 15px; font-weight: bold; color: #991b1b;">
+                  Kính gửi: ${rec.name} <span style="font-weight: normal; font-size: 13px; color: #b91c1c;">(${rec.relation})</span>
+                </p>
+                <p style="margin: 4px 0 0; font-size: 13px; color: #7f1d1d;">
+                  Hệ thống bảo vệ gia đình vừa phát hiện nhiệt độ tăng đột ngột vượt ngưỡng an toàn. Còi báo cháy đã kích hoạt còi hú liên tục và camera đã ghi nhận hình ảnh hiện trường.
+                </p>
+              </div>
+
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13.5px;">
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 8px 0; color: #64748b;">Mã sự cố:</td>
+                  <td style="padding: 8px 0; font-weight: bold; color: #0f172a; text-align: right;">${incidentId}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 8px 0; color: #64748b;">Nhiệt độ tức thời:</td>
+                  <td style="padding: 8px 0; text-align: right;">
+                    <span style="color: #dc2626; font-size: 18px; font-weight: 900;">${temp.toFixed(1)}°C</span>
+                    <span style="color: #64748b; font-size: 12px;"> (Ngưỡng nguy hiểm: ${thresh}°C)</span>
+                  </td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 8px 0; color: #64748b;">Thời gian phát hiện:</td>
+                  <td style="padding: 8px 0; font-weight: 600; color: #0f172a; text-align: right;">${timeStr}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 8px 0; color: #64748b;">Tình trạng còi hú:</td>
+                  <td style="padding: 8px 0; font-weight: bold; color: #dc2626; text-align: right;">🔊 Đang hú còi biến tần liên tục</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b;">Lý do cảnh báo:</td>
+                  <td style="padding: 8px 0; color: #334155; text-align: right;">${alertReason}</td>
+                </tr>
+              </table>
+
+              <!-- HÌNH ẢNH HIỆN TRƯỜNG CHỤP TỰ ĐỘNG TỪ CAMERA -->
+              <div style="background: #0f172a; border-radius: 10px; padding: 14px; margin-bottom: 22px; text-align: center; border: 2px solid #ef4444;">
+                <div style="color: #f87171; font-weight: bold; font-size: 13.5px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                  📸 HÌNH ẢNH VỤ CHÁY HIỆN TRƯỜNG (CAMERA TỰ ĐỘNG CHỤP MÀN HÌNH)
+                </div>
+                ${imageAttachment ? `
+                  <img src="cid:fire_snapshot" alt="Ảnh chụp hiện trường hỏa hoạn" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #334155; box-shadow: 0 4px 14px rgba(0,0,0,0.4);" />
+                ` : `
+                  <div style="padding: 25px 15px; color: #94a3b8; font-size: 13px;">
+                    📷 Đã ghi nhận tín hiệu ảnh từ camera trạm giám sát.
+                  </div>
+                `}
+                <div style="color: #94a3b8; font-size: 11px; margin-top: 8px;">
+                  Mốc thời gian RTC DS3231: ${timeStr} · Cảm biến LM35: ${temp.toFixed(1)}°C
+                </div>
+              </div>
+
+              <!-- HƯỚNG DẪN THOÁT HIỂM PCCC CHUẨN 114 -->
+              <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 10px; color: #92400e; font-size: 14px;">🛡️ HƯỚNG DẪN ỨNG PHÓ KHẨN CẤP CHO GIA ĐÌNH:</h4>
+                <ol style="margin: 0; padding-left: 20px; line-height: 1.6; color: #78350f; font-size: 13px;">
+                  <li><strong>Báo động:</strong> Hô to cho tất cả thành viên trong nhà cùng biết.</li>
+                  <li><strong>Ngắt điện:</strong> Dập cầu dao tổng (Aptomat) của khu vực ngay lập tức.</li>
+                  <li><strong>Dập lửa:</strong> Sử dụng bình chữa cháy CO2/bột ABC nếu đám cháy còn nhỏ.</li>
+                  <li><strong>Thoát nạn:</strong> Bịt khăn ướt, bò thấp men theo tường ra cửa thoát hiểm.</li>
+                  <li><strong>Cứu hỏa:</strong> Gọi ngay số khẩn cấp <strong style="color: #dc2626; font-size: 15px;">114</strong> nếu lửa bùng phát!</li>
+                </ol>
+              </div>
+
+              <div style="text-align: center; color: #64748b; font-size: 11.5px; border-top: 1px solid #e2e8f0; padding-top: 14px;">
+                Email này được phát tự động từ Hệ Thống PCCC Thông Minh IoT 102 tới toàn bộ thành viên gia đình.
+              </div>
+            </div>
+          </div>
+        `;
+
+        if (isRealSmtp) {
+          try {
+            await sendNativeGmail({
+              user: gmailUser,
+              appPassword: gmailPass,
+              to: rec.email,
+              subject,
+              htmlBody: htmlContent,
+              textBody: textContent,
+              imageAttachment
+            });
+            db.logEmailDispatch({ event_id: incidentId, recipient: rec.email, subject, temperature: temp, status: 'SENT_REAL' });
+            dispatchResults.push({ name: rec.name, email: rec.email, status: 'SENT_REAL' });
+          } catch (err) {
+            db.logEmailDispatch({ event_id: incidentId, recipient: rec.email, subject, temperature: temp, status: 'FAILED', error_message: err.message });
+            dispatchResults.push({ name: rec.name, email: rec.email, status: 'FAILED', error: err.message });
+          }
+        } else {
+          db.logEmailDispatch({ event_id: incidentId, recipient: rec.email, subject, temperature: temp, status: 'SIMULATION_LOG' });
+          console.log(`[EMAIL ALERT SIMULATED] Cảnh báo hỏa hoạn gửi tới: ${rec.name} <${rec.email}> | ${temp.toFixed(1)}°C | Giờ: ${timeStr}`);
+          dispatchResults.push({ name: rec.name, email: rec.email, status: 'SIMULATION_LOG' });
         }
-      } else {
-        db.logEmailDispatch({ event_id: incidentId, recipient: targetEmail, subject, temperature: temp, status: 'SIMULATION_LOG' });
-        console.log(`[EMAIL ALERT SIMULATED] Cảnh báo hỏa hoạn gửi tới: ${targetEmail} | Nhiệt độ: ${temp.toFixed(1)}°C | Giờ: ${timeStr}`);
-        return sendJson(res, { success: true, method: 'DIRECT_READY', message: `Đã kích hoạt cảnh báo gửi tới Gmail: ${targetEmail}! (Để nhận thư thực tế vào Inbox, hãy nhập GMAIL_USER và GMAIL_APP_PASSWORD trong file .env)` });
       }
+
+      db.logSystemAction('FIRE_ALERT_BROADCAST', `Đã gửi cảnh báo cháy ${temp.toFixed(1)}°C kèm ảnh hiện trường tới ${recipients.length} thành viên gia đình`);
+
+      const sentCount = dispatchResults.filter(r => r.status !== 'FAILED').length;
+      return sendJson(res, {
+        success: true,
+        method: isRealSmtp ? 'SMTP_REAL' : 'SIMULATION_LOG',
+        incidentId,
+        recipientsCount: recipients.length,
+        sentCount,
+        hasSnapshot: Boolean(cleanBase64),
+        recipients: dispatchResults,
+        message: isRealSmtp
+          ? `Đã gửi thành công email báo cháy kèm ảnh hiện trường tới ${sentCount}/${recipients.length} thành viên trong gia đình qua Google SMTP!`
+          : `[MÔ PHỎNG PCCC GIA ĐÌNH] Đã kích hoạt còi hú và gửi cảnh báo kèm ảnh hiện trường tới ${recipients.length} thành viên gia đình! (Nhập GMAIL_USER và GMAIL_APP_PASSWORD trong file .env để gửi Inbox thật).`
+      });
     }
 
     // 15. Chẩn đoán AI nguy cơ hỏa hoạn

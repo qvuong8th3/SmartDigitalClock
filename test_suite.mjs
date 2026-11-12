@@ -2,7 +2,7 @@ import { readFileSync, existsSync, unlinkSync } from 'node:fs';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 
-const NODE_BIN = 'C:\\Users\\QUOC VUONG\\AppData\\Local\\ms-playwright-go\\1.57.0\\node.exe';
+const NODE_BIN = process.execPath || 'node';
 const results = [];
 
 function assert(name, condition, details = '') {
@@ -172,6 +172,34 @@ try {
     body: { username: 'admin', password: 'admin123' }
   });
   assert('POST /api/auth/login (Xác thực phân quyền Quản Trị Viên)', auth.status === 200 && auth.body?.user?.role === 'admin');
+
+  // Test Quản lý Thành Viên Gia Đình (Family Members)
+  const familyGet = await request('/api/family');
+  assert('GET /api/family (Danh sách thành viên gia đình)', familyGet.status === 200 && Array.isArray(familyGet.body?.members) && familyGet.body.members.length >= 3);
+
+  const familyPost = await request('/api/family', {
+    method: 'POST',
+    body: {
+      name: 'Con Gái (Hoa)',
+      relation: 'Con Gái',
+      email: 'hoa.family@gmail.com',
+      phone: '0933221100',
+      is_active: 1
+    }
+  });
+  assert('POST /api/family (Thêm thành viên gia đình mới)', familyPost.status === 200 && familyPost.body?.member?.email === 'hoa.family@gmail.com');
+
+  const addedId = familyPost.body?.member?.id;
+  if (addedId) {
+    const familyPatch = await request('/api/family/' + addedId, {
+      method: 'PATCH',
+      body: { is_active: 0 }
+    });
+    assert('PATCH /api/family/:id (Bật/tắt trạng thái nhận cảnh báo)', familyPatch.status === 200 && familyPatch.body?.member?.is_active === 0);
+
+    const familyDel = await request('/api/family/' + addedId, { method: 'DELETE' });
+    assert('DELETE /api/family/:id (Xóa thành viên khỏi danh sách gia đình)', familyDel.status === 200 && familyDel.body?.success === true);
+  }
 
   // Test POST /api/alert/email (Báo cáo hỏa hoạn tự động)
   const emailAlert = await request('/api/alert/email', {

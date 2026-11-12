@@ -7,7 +7,7 @@
       "password_hash": "admin123",
       "full_name": "Quản Trị Viên Hệ Thống PCCC",
       "created_at": "2026-11-11T13:09:19.808Z",
-      "last_login": "2026-11-11T13:21:43.007Z"
+      "last_login": "2026-11-12T12:14:25.967Z"
     },
     {
       "id": 2,
@@ -47,7 +47,7 @@
     "buzzer_enabled": 1,
     "email_enabled": 1,
     "rate_of_rise_threshold": 3,
-    "updated_at": "2026-11-11T13:21:42.981Z"
+    "updated_at": "2026-11-12T12:14:25.865Z"
   },
   "sensor_data": [
     {
@@ -85,6 +85,51 @@
       "rate_of_rise": 0.2,
       "status": "NORMAL",
       "recorded_at": "2026-11-11T13:21:43.004Z"
+    },
+    {
+      "id": 5,
+      "device_id": "ARDUINO-UNO-01",
+      "temperature": 31.8,
+      "source": "USB_SERIAL",
+      "rate_of_rise": 0.2,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-12T11:47:39.058Z"
+    },
+    {
+      "id": 6,
+      "device_id": "ARDUINO-UNO-01",
+      "temperature": 31.8,
+      "source": "USB_SERIAL",
+      "rate_of_rise": 0.2,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-12T11:59:02.108Z"
+    },
+    {
+      "id": 7,
+      "device_id": "ARDUINO-UNO-01",
+      "temperature": 31.8,
+      "source": "USB_SERIAL",
+      "rate_of_rise": 0.2,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-12T12:09:24.643Z"
+    },
+    {
+      "id": 8,
+      "device_id": "ARDUINO-UNO-01",
+      "temperature": 31.8,
+      "source": "USB_SERIAL",
+      "rate_of_rise": 0.2,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-12T12:13:06.068Z"
+    },
+    {
+      "id": 9,
+      "device_id": "ARDUINO-UNO-01",
+      "temperature": 31.8,
+      "source": "USB_SERIAL",
+      "rate_of_rise": 0.2,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-12T12:14:25.955Z"
     }
   ],
   "fire_events": [
@@ -103,6 +148,226 @@
   "alarm_logs": [],
   "camera_images": [],
   "email_logs": [
+    {
+      "id": 26,
+      "event_id": "INC-665992",
+      "recipient": "contrai.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-665992",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:14:25.996Z"
+    },
+    {
+      "id": 25,
+      "event_id": "INC-665992",
+      "recipient": "me.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-665992",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:14:25.995Z"
+    },
+    {
+      "id": 24,
+      "event_id": "INC-665992",
+      "recipient": "bo.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-665992",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:14:25.993Z"
+    },
+    {
+      "id": 23,
+      "event_id": "INC-665992",
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-665992",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:14:25.992Z"
+    },
+    {
+      "id": 22,
+      "event_id": null,
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "[KIỂM THỬ KẾT NỐI] Hệ Thống Cảnh Báo PCCC IoT 102 - Thử Nghiệm Hoạt Động",
+      "temperature": 28.5,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:14:25.947Z"
+    },
+    {
+      "id": 21,
+      "event_id": "INC-586106",
+      "recipient": "contrai.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-586106",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:13:06.112Z"
+    },
+    {
+      "id": 20,
+      "event_id": "INC-586106",
+      "recipient": "me.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-586106",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:13:06.111Z"
+    },
+    {
+      "id": 19,
+      "event_id": "INC-586106",
+      "recipient": "bo.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-586106",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:13:06.108Z"
+    },
+    {
+      "id": 18,
+      "event_id": "INC-586106",
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-586106",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:13:06.106Z"
+    },
+    {
+      "id": 17,
+      "event_id": null,
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "[KIỂM THỬ KẾT NỐI] Hệ Thống Cảnh Báo PCCC IoT 102 - Thử Nghiệm Hoạt Động",
+      "temperature": 28.5,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:13:06.060Z"
+    },
+    {
+      "id": 16,
+      "event_id": "INC-364662",
+      "recipient": "contrai.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-364662",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:09:24.668Z"
+    },
+    {
+      "id": 15,
+      "event_id": "INC-364662",
+      "recipient": "me.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-364662",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:09:24.666Z"
+    },
+    {
+      "id": 14,
+      "event_id": "INC-364662",
+      "recipient": "bo.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-364662",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:09:24.664Z"
+    },
+    {
+      "id": 13,
+      "event_id": "INC-364662",
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-364662",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:09:24.662Z"
+    },
+    {
+      "id": 12,
+      "event_id": null,
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "[KIỂM THỬ KẾT NỐI] Hệ Thống Cảnh Báo PCCC IoT 102 - Thử Nghiệm Hoạt Động",
+      "temperature": 28.5,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T12:09:24.609Z"
+    },
+    {
+      "id": 11,
+      "event_id": "INC-742127",
+      "recipient": "contrai.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-742127",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T11:59:02.132Z"
+    },
+    {
+      "id": 10,
+      "event_id": "INC-742127",
+      "recipient": "me.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-742127",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T11:59:02.130Z"
+    },
+    {
+      "id": 9,
+      "event_id": "INC-742127",
+      "recipient": "bo.giadinh@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-742127",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T11:59:02.129Z"
+    },
+    {
+      "id": 8,
+      "event_id": "INC-742127",
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-742127",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T11:59:02.127Z"
+    },
+    {
+      "id": 7,
+      "event_id": null,
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "[KIỂM THỬ KẾT NỐI] Hệ Thống Cảnh Báo PCCC IoT 102 - Thử Nghiệm Hoạt Động",
+      "temperature": 28.5,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T11:59:02.099Z"
+    },
+    {
+      "id": 6,
+      "event_id": "INC-059082",
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-059082",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T11:47:39.082Z"
+    },
+    {
+      "id": 5,
+      "event_id": null,
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "[KIỂM THỬ KẾT NỐI] Hệ Thống Cảnh Báo PCCC IoT 102 - Thử Nghiệm Hoạt Động",
+      "temperature": 28.5,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T11:47:39.048Z"
+    },
     {
       "id": 4,
       "event_id": "INC-303008",
@@ -164,6 +429,181 @@
   ],
   "system_logs": [
     {
+      "id": 31,
+      "action": "FIRE_ALERT_BROADCAST",
+      "details": "Đã gửi cảnh báo cháy 66.2°C kèm ảnh hiện trường tới 4 thành viên gia đình",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:14:25.997Z"
+    },
+    {
+      "id": 30,
+      "action": "DELETE_FAMILY_MEMBER",
+      "details": "Đã xóa thành viên ID 4 khỏi danh sách gia đình",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:14:25.988Z"
+    },
+    {
+      "id": 29,
+      "action": "UPDATE_FAMILY_MEMBER",
+      "details": "Cập nhật thành viên ID 4: Con Gái (Hoa)",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:14:25.983Z"
+    },
+    {
+      "id": 28,
+      "action": "ADD_FAMILY_MEMBER",
+      "details": "Đã thêm thành viên gia đình: Con Gái (Hoa) (hoa.family@gmail.com)",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:14:25.976Z"
+    },
+    {
+      "id": 27,
+      "action": "USER_LOGIN",
+      "details": "Người dùng admin đăng nhập thành công.",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:14:25.969Z"
+    },
+    {
+      "id": 26,
+      "action": "SYNC_EMAIL",
+      "details": "Đã đồng bộ Gmail cảnh báo: test_student_iot@gmail.com",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:14:25.882Z"
+    },
+    {
+      "id": 25,
+      "action": "UPDATE_THRESHOLDS",
+      "details": "Đã cập nhật ngưỡng: Cảnh báo 41.5°C, Nguy hiểm 51.5°C",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:14:25.867Z"
+    },
+    {
+      "id": 24,
+      "action": "FIRE_ALERT_BROADCAST",
+      "details": "Đã gửi cảnh báo cháy 66.2°C kèm ảnh hiện trường tới 4 thành viên gia đình",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:13:06.114Z"
+    },
+    {
+      "id": 23,
+      "action": "DELETE_FAMILY_MEMBER",
+      "details": "Đã xóa thành viên ID 4 khỏi danh sách gia đình",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:13:06.101Z"
+    },
+    {
+      "id": 22,
+      "action": "UPDATE_FAMILY_MEMBER",
+      "details": "Cập nhật thành viên ID 4: Con Gái (Hoa)",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:13:06.096Z"
+    },
+    {
+      "id": 21,
+      "action": "ADD_FAMILY_MEMBER",
+      "details": "Đã thêm thành viên gia đình: Con Gái (Hoa) (hoa.family@gmail.com)",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:13:06.092Z"
+    },
+    {
+      "id": 20,
+      "action": "USER_LOGIN",
+      "details": "Người dùng admin đăng nhập thành công.",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:13:06.084Z"
+    },
+    {
+      "id": 19,
+      "action": "SYNC_EMAIL",
+      "details": "Đã đồng bộ Gmail cảnh báo: test_student_iot@gmail.com",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:13:05.996Z"
+    },
+    {
+      "id": 18,
+      "action": "UPDATE_THRESHOLDS",
+      "details": "Đã cập nhật ngưỡng: Cảnh báo 41.5°C, Nguy hiểm 51.5°C",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:13:05.980Z"
+    },
+    {
+      "id": 17,
+      "action": "FIRE_ALERT_BROADCAST",
+      "details": "Đã gửi cảnh báo cháy 66.2°C kèm ảnh hiện trường tới 4 thành viên gia đình",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:09:24.670Z"
+    },
+    {
+      "id": 16,
+      "action": "USER_LOGIN",
+      "details": "Người dùng admin đăng nhập thành công.",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:09:24.658Z"
+    },
+    {
+      "id": 15,
+      "action": "SYNC_EMAIL",
+      "details": "Đã đồng bộ Gmail cảnh báo: test_student_iot@gmail.com",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:09:24.554Z"
+    },
+    {
+      "id": 14,
+      "action": "UPDATE_THRESHOLDS",
+      "details": "Đã cập nhật ngưỡng: Cảnh báo 41.5°C, Nguy hiểm 51.5°C",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T12:09:24.538Z"
+    },
+    {
+      "id": 13,
+      "action": "FIRE_ALERT_BROADCAST",
+      "details": "Đã gửi cảnh báo cháy 66.2°C kèm ảnh hiện trường tới 4 thành viên gia đình",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T11:59:02.134Z"
+    },
+    {
+      "id": 12,
+      "action": "USER_LOGIN",
+      "details": "Người dùng admin đăng nhập thành công.",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T11:59:02.123Z"
+    },
+    {
+      "id": 11,
+      "action": "SYNC_EMAIL",
+      "details": "Đã đồng bộ Gmail cảnh báo: test_student_iot@gmail.com",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T11:59:02.035Z"
+    },
+    {
+      "id": 10,
+      "action": "UPDATE_THRESHOLDS",
+      "details": "Đã cập nhật ngưỡng: Cảnh báo 41.5°C, Nguy hiểm 51.5°C",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T11:59:02.020Z"
+    },
+    {
+      "id": 9,
+      "action": "USER_LOGIN",
+      "details": "Người dùng admin đăng nhập thành công.",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T11:47:39.078Z"
+    },
+    {
+      "id": 8,
+      "action": "SYNC_EMAIL",
+      "details": "Đã đồng bộ Gmail cảnh báo: test_student_iot@gmail.com",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T11:47:38.921Z"
+    },
+    {
+      "id": 7,
+      "action": "UPDATE_THRESHOLDS",
+      "details": "Đã cập nhật ngưỡng: Cảnh báo 41.5°C, Nguy hiểm 51.5°C",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T11:47:38.906Z"
+    },
+    {
       "id": 6,
       "action": "USER_LOGIN",
       "details": "Người dùng admin đăng nhập thành công.",
@@ -203,6 +643,35 @@
       "action": "SYSTEM_BOOT",
       "details": "Khởi động máy chủ và nạp cơ sở dữ liệu bền vững.",
       "created_at": "2026-11-11T13:09:19.817Z"
+    }
+  ],
+  "family_members": [
+    {
+      "id": 1,
+      "name": "Bố (Chủ Hộ)",
+      "relation": "Chủ Hộ",
+      "email": "bo.giadinh@gmail.com",
+      "phone": "0901234567",
+      "is_active": 1,
+      "created_at": "2026-11-12T11:59:00.941Z"
+    },
+    {
+      "id": 2,
+      "name": "Mẹ",
+      "relation": "Mẹ",
+      "email": "me.giadinh@gmail.com",
+      "phone": "0912345678",
+      "is_active": 1,
+      "created_at": "2026-11-12T11:59:00.941Z"
+    },
+    {
+      "id": 3,
+      "name": "Con Trai",
+      "relation": "Con",
+      "email": "contrai.giadinh@gmail.com",
+      "phone": "0987654321",
+      "is_active": 1,
+      "created_at": "2026-11-12T11:59:00.941Z"
     }
   ]
 }

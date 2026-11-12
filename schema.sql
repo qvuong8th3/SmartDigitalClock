@@ -120,3 +120,15 @@ CREATE TABLE IF NOT EXISTS system_logs (
     ip_address TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- 11. Bảng Quản Lý Thành Viên Gia Đình Nhận Cảnh Báo Cháy
+CREATE TABLE IF NOT EXISTS family_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    relation TEXT DEFAULT 'Thành viên',
+    email TEXT NOT NULL,
+    phone TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

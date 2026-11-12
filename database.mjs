@@ -83,6 +83,35 @@ const initialData = {
       details: 'Khởi động máy chủ và nạp cơ sở dữ liệu bền vững.',
       created_at: new Date().toISOString()
     }
+  ],
+  family_members: [
+    {
+      id: 1,
+      name: 'Bố (Chủ Hộ)',
+      relation: 'Chủ Hộ',
+      email: 'bo.giadinh@gmail.com',
+      phone: '0901234567',
+      is_active: 1,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 2,
+      name: 'Mẹ',
+      relation: 'Mẹ',
+      email: 'me.giadinh@gmail.com',
+      phone: '0912345678',
+      is_active: 1,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 3,
+      name: 'Con Trai',
+      relation: 'Con',
+      email: 'contrai.giadinh@gmail.com',
+      phone: '0987654321',
+      is_active: 1,
+      created_at: new Date().toISOString()
+    }
   ]
 };
 
@@ -97,7 +126,8 @@ export function initDatabase() {
       db = {
         ...initialData,
         ...parsed,
-        alert_thresholds: { ...initialData.alert_thresholds, ...(parsed.alert_thresholds || {}) }
+        alert_thresholds: { ...initialData.alert_thresholds, ...(parsed.alert_thresholds || {}) },
+        family_members: (Array.isArray(parsed.family_members) && parsed.family_members.length > 0) ? parsed.family_members : [...initialData.family_members]
       };
       console.log(`[DATABASE] Đã tải CSDL bền vững từ file: ${dbFilePath}`);
     } else {
@@ -397,6 +427,59 @@ export function authenticateUser(username, password) {
   return { success: false, error: 'Tên đăng nhập hoặc mật khẩu không đúng.' };
 }
 
+
+// 10. Quản lý thành viên gia đình (Family Members)
+export function getFamilyMembers() {
+  if (!Array.isArray(db.family_members)) db.family_members = [...initialData.family_members];
+  return [...db.family_members];
+}
+
+export function addFamilyMember({ name, relation = 'Thành viên', email, phone = '', is_active = 1 }) {
+  if (!Array.isArray(db.family_members)) db.family_members = [];
+  const maxId = db.family_members.reduce((acc, m) => Math.max(acc, m.id || 0), 0);
+  const member = {
+    id: maxId + 1,
+    name: (name || '').trim(),
+    relation: (relation || 'Thành viên').trim(),
+    email: (email || '').trim().toLowerCase(),
+    phone: (phone || '').trim(),
+    is_active: is_active ? 1 : 0,
+    created_at: new Date().toISOString()
+  };
+  db.family_members.push(member);
+  saveDatabase();
+  return member;
+}
+
+export function updateFamilyMember(id, updates = {}) {
+  if (!Array.isArray(db.family_members)) return null;
+  const numId = Number(id);
+  const member = db.family_members.find(m => m.id === numId);
+  if (!member) return null;
+
+  if (typeof updates.name === 'string') member.name = updates.name.trim();
+  if (typeof updates.relation === 'string') member.relation = updates.relation.trim();
+  if (typeof updates.email === 'string') member.email = updates.email.trim().toLowerCase();
+  if (typeof updates.phone === 'string') member.phone = updates.phone.trim();
+  if (typeof updates.is_active !== 'undefined') {
+    member.is_active = updates.is_active ? 1 : 0;
+  }
+  member.updated_at = new Date().toISOString();
+  saveDatabase();
+  return member;
+}
+
+export function deleteFamilyMember(id) {
+  if (!Array.isArray(db.family_members)) return false;
+  const numId = Number(id);
+  const idx = db.family_members.findIndex(m => m.id === numId);
+  if (idx !== -1) {
+    db.family_members.splice(idx, 1);
+    saveDatabase();
+    return true;
+  }
+  return false;
+}
 export function changeUserPassword(username, oldPassword, newPassword) {
   const user = db.users.find(u => u.username === username && u.password_hash === oldPassword);
   if (!user) return { success: false, error: 'Mật khẩu cũ không chính xác.' };
