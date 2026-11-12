@@ -1622,30 +1622,59 @@ footer {
         </div>
       </div>
 
-      <!-- Khối gán Gmail nhận cảnh báo cháy -->
-      <div class="gmail-config-box">
-        <div class="gmail-config-top">
-          <span>📧 Gán Địa Chỉ Gmail Nhận Cảnh Báo Khi Cháy</span>
-          <span style="font-size:10.5px; font-weight:normal; color:#b91c1c;" id="gmailAlertStatus">Chưa gửi email nào</span>
+      <!-- =========================================================
+           KHỐI CẢNH BÁO CHÁY TỰ ĐỘNG CHO TOÀN BỘ THÀNH VIÊN GIA ĐÌNH
+           ========================================================= -->
+      <div class="family-config-box">
+        <div class="family-header-row">
+          <div class="family-title">
+            <span>👨‍👩‍👧‍👦 Báo Cháy Tự Động Cho Gia Đình</span>
+            <span class="family-badge-pill" id="familyActiveCountBadge">3 Thành viên bật</span>
+          </div>
+          <span style="font-size:10px; color:#b91c1c; font-weight:600;" id="gmailAlertStatus">Sẵn sàng tự động gửi</span>
         </div>
-        <div class="gmail-input-group">
-          <input type="email" class="gmail-input" id="alertEmailInput" placeholder="Nhập địa chỉ Gmail của bạn (vd: your_email@gmail.com)">
-          <button type="button" class="btn-danger" onclick="saveAlertEmail()">
-            💾 Lưu Gmail
+
+        <!-- Các nút thao tác nhanh -->
+        <div class="family-actions-row">
+          <button type="button" class="family-btn family-btn-primary" onclick="openFamilyModal()">
+            ➕ Thêm Thành Viên
           </button>
-          <button type="button" class="btn-warning" id="testEmailBtn" onclick="sendTestEmailAlert()">
-            🧪 Gửi Thử Cảnh Báo
+          <button type="button" class="family-btn family-btn-warning" onclick="sendTestEmailToFamily()" title="Gửi email thử nghiệm kèm ảnh hiện trường tới toàn bộ thành viên đang kích hoạt">
+            🧪 Gửi Thử Cả Nhà
           </button>
-          <button type="button" class="btn-primary" onclick="openPreFilledGmail()" style="background:#0284c7; border-color:#0284c7; color:white;">
-            📧 Mở Soạn Thư
+          <button type="button" class="family-btn family-btn-secondary" onclick="toggleAdminEmailCollapse()" style="font-size:10.5px;" title="Cài đặt Gmail quản trị viên hệ thống">
+            ⚙️ Gmail Admin
           </button>
         </div>
+
+        <!-- Danh sách thành viên gia đình nhận cảnh báo -->
+        <div class="family-members-list" id="familyMembersList">
+          <div style="text-align:center; padding:12px; font-size:11px; color:#64748b;">
+            Đang tải danh sách thành viên gia đình...
+          </div>
+        </div>
+
+        <!-- Khung cài đặt Gmail Admin / Đồng bộ chung (giữ các ID chuẩn cho test suite) -->
+        <div id="adminEmailBox" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed #fca5a5;">
+          <div style="font-size:10.5px; font-weight:700; color:#991b1b; margin-bottom:4px;">
+            📧 Gmail Quản Trị / Đồng Bộ Toàn Mạng:
+          </div>
+          <div class="gmail-input-group">
+            <input type="email" class="gmail-input" id="alertEmailInput" placeholder="Nhập địa chỉ Gmail quản trị (vd: admin@gmail.com)">
+            <button type="button" class="btn-danger" style="padding:4px 8px; font-size:11px;" onclick="saveAlertEmail()">
+              💾 Lưu
+            </button>
+            <button type="button" class="btn-warning" id="testEmailBtn" style="padding:4px 8px; font-size:11px;" onclick="sendTestEmailAlert()">
+              🧪 Test
+            </button>
+          </div>
+        </div>
+
         <div class="gmail-badge" id="gmailBadgeText">
-          <span>ℹ️</span> <span>Khi nhiệt độ vượt ngưỡng hoặc có báo động cháy, hệ thống sẽ tự động gửi email khẩn cấp chứa thời gian, nhiệt độ và ảnh hiện trường về Gmail này.</span>
+          <span>🚨</span> <span><strong>Chế độ tự động 24/7:</strong> Khi còi báo cháy hú, Camera sẽ <strong>tự động chụp ảnh hiện trường</strong> và gửi Gmail kèm hình ảnh vụ cháy tới <strong>tất cả thành viên trong gia đình</strong>!</span>
         </div>
       </div>
 
-      <!-- Thông số linh kiện phần cứng -->
       <div class="details">
         <div class="detail">MODULE ĐỒNG HỒ<strong id="rtcModule">DS3231 · I2C TCXO (CR2032)</strong></div>
         <div class="detail">CẢM BIẾN NHIỆT ĐỘ<strong id="sensorModule">LM35 Precision Sensor</strong></div>
@@ -4161,6 +4190,70 @@ if ('serial' in navigator) {
 <!-- =========================================================
      MODAL 4: XEM ẢNH HIỆN TRƯỜNG PHÓNG TO (SNAPSHOT VIEWER)
      ========================================================= -->
+<!-- =========================================================
+     MODAL: QUẢN LÝ THÊM / SỬA THÀNH VIÊN GIA ĐÌNH NHẬN BÁO CHÁY
+     ========================================================= -->
+<div class="app-modal-backdrop" id="familyModal">
+  <div class="app-modal-box" style="max-width:480px;">
+    <div class="app-modal-header">
+      <h3 id="familyModalTitle">👨‍👩‍👧‍👦 Thêm Thành Viên Gia Đình Nhận Báo Cháy</h3>
+      <button type="button" class="app-modal-close" onclick="closeFamilyModal()">×</button>
+    </div>
+    <div class="app-modal-body">
+      <div style="background:#fef2f2; border:1px solid #fee2e2; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:12px; color:#991b1b;">
+        <strong>Chế độ khẩn cấp:</strong> Khi xảy ra hỏa hoạn, camera sẽ chụp ảnh màn hình hiện trường vụ cháy và gửi email lập tức tới địa chỉ này kèm còi hú!
+      </div>
+      <form id="familyMemberForm" onsubmit="handleFamilyMemberSubmit(event)" style="display:flex; flex-direction:column; gap:12px; font-size:13px;">
+        <input type="hidden" id="editFamilyMemberId" value="">
+        
+        <div>
+          <label style="font-weight:600; display:block; margin-bottom:4px;">Họ Và Tên Thành Viên (*):</label>
+          <input type="text" id="familyMemberName" required placeholder="Ví dụ: Bố (Nguyễn Văn A)" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div>
+            <label style="font-weight:600; display:block; margin-bottom:4px;">Quan Hệ Trong Gia Đình:</label>
+            <select id="familyMemberRelation" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+              <option value="Chủ Hộ">Chủ Hộ / Bố</option>
+              <option value="Mẹ">Mẹ</option>
+              <option value="Vợ">Vợ</option>
+              <option value="Chồng">Chồng</option>
+              <option value="Con Trai">Con Trai</option>
+              <option value="Con Gái">Con Gái</option>
+              <option value="Ông/Bà">Ông / Bà</option>
+              <option value="Anh/Chị/Em">Anh / Chị / Em</option>
+              <option value="Người Thân">Người Thân Khác</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-weight:600; display:block; margin-bottom:4px;">Số Điện Thoại:</label>
+            <input type="tel" id="familyMemberPhone" placeholder="0901234567" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+          </div>
+        </div>
+
+        <div>
+          <label style="font-weight:600; display:block; margin-bottom:4px;">Địa Chỉ Gmail Nhận Báo Cháy (*):</label>
+          <input type="email" id="familyMemberEmail" required placeholder="thanhvien@gmail.com" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+          <span style="font-size:11px; color:#64748b;">Hệ thống sẽ gửi email báo động khẩn cấp kèm ảnh chụp camera vụ cháy tới hộp thư này.</span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; padding:6px 0;">
+          <input type="checkbox" id="familyMemberActive" checked style="width:16px; height:16px; accent-color:#dc2626;">
+          <label for="familyMemberActive" style="font-size:13px; font-weight:600; color:#1e293b; cursor:pointer;">
+            Kích hoạt nhận cảnh báo tự động ngay khi có báo cháy
+          </label>
+        </div>
+
+        <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" class="nav-quick-btn" onclick="closeFamilyModal()" style="padding:8px 16px;">Hủy</button>
+          <button type="submit" class="btn-danger" style="padding:8px 18px; font-size:13px;">💾 Lưu Thành Viên</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="app-modal-backdrop" id="snapshotViewerModal">
   <div class="app-modal-box" style="max-width:720px; text-align:center;">
     <div class="app-modal-header">
