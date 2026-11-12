@@ -4074,6 +4074,328 @@ if ('serial' in navigator) {
   });
 }
 
+
+// =============================================================================
+// QUẢN LÝ THÀNH VIÊN GIA ĐÌNH & TỰ ĐỘNG GỬI EMAIL BÁO CHÁY KÈM ẢNH HIỆN TRƯỜNG
+// =============================================================================
+let familyMembers = [];
+
+function toggleAdminEmailCollapse() {
+  const box = document.getElementById("adminEmailBox");
+  if (box) {
+    box.style.display = box.style.display === "none" ? "block" : "none";
+  }
+}
+
+async function loadFamilyMembers() {
+  const listEl = document.getElementById("familyMembersList");
+  try {
+    const res = await fetch("/api/family");
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.members)) {
+        familyMembers = data.members;
+        renderFamilyMembers();
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn("Lỗi khi tải danh sách thành viên gia đình từ máy chủ:", err.message);
+  }
+
+  // Fallback từ localStorage nếu chạy offline hoặc mở trực tiếp file://
+  try {
+    const stored = localStorage.getItem("familyMembersStore");
+    if (stored) {
+      familyMembers = JSON.parse(stored);
+    } else {
+      familyMembers = [
+        { id: 1, name: "Bố (Chủ Hộ)", relation: "Chủ Hộ", email: "bo.giadinh@gmail.com", phone: "0901234567", is_active: 1 },
+        { id: 2, name: "Mẹ", relation: "Mẹ", email: "me.giadinh@gmail.com", phone: "0912345678", is_active: 1 },
+        { id: 3, name: "Con Trai", relation: "Con Trai", email: "contrai.giadinh@gmail.com", phone: "0987654321", is_active: 1 }
+      ];
+    }
+  } catch {
+    familyMembers = [
+      { id: 1, name: "Bố (Chủ Hộ)", relation: "Chủ Hộ", email: "bo.giadinh@gmail.com", phone: "0901234567", is_active: 1 },
+      { id: 2, name: "Mẹ", relation: "Mẹ", email: "me.giadinh@gmail.com", phone: "0912345678", is_active: 1 }
+    ];
+  }
+  renderFamilyMembers();
+}
+
+function getAvatarForRelation(relation) {
+  const r = (relation || "").toLowerCase();
+  if (r.includes("mẹ") || r.includes("bà") || r.includes("gái") || r.includes("vợ") || r.includes("chị")) return "👩";
+  if (r.includes("con trai")) return "👦";
+  if (r.includes("con gái")) return "👧";
+  if (r.includes("ông")) return "👴";
+  if (r.includes("bố") || r.includes("chủ hộ") || r.includes("chồng")) return "👨";
+  return "👤";
+}
+
+function renderFamilyMembers() {
+  const listEl = document.getElementById("familyMembersList");
+  const badgeEl = document.getElementById("familyActiveCountBadge");
+  if (!listEl) return;
+
+  const activeCount = familyMembers.filter(m => m.is_active).length;
+  if (badgeEl) {
+    badgeEl.textContent = activeCount + "/" + familyMembers.length + " Thành viên bật";
+    badgeEl.style.background = activeCount > 0 ? "#fee2e2" : "#f1f5f9";
+    badgeEl.style.color = activeCount > 0 ? "#b91c1c" : "#64748b";
+  }
+
+  if (familyMembers.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; padding:12px; font-size:11px; color:#64748b;">Chưa có thành viên nào. Hãy bấm "➕ Thêm Thành Viên" để cài đặt thông báo cho gia đình.</div>';
+    return;
+  }
+
+  let htmlStr = "";
+  for (const m of familyMembers) {
+    const isAct = Boolean(m.is_active);
+    htmlStr += `
+      <div class="family-member-card ${isAct ? '' : 'inactive'}" id="familyCard-${m.id}">
+        <div class="family-member-left">
+          <div class="family-avatar">${getAvatarForRelation(m.relation)}</div>
+          <div class="family-member-info">
+            <div class="family-member-name">
+              ${m.name}
+              <span class="family-relation-chip">${m.relation || 'Thành viên'}</span>
+            </div>
+            <div class="family-member-email" title="${m.email}">
+              ✉️ ${m.email} ${m.phone ? ' · 📞 ' + m.phone : ''}
+            </div>
+          </div>
+        </div>
+        <div class="family-member-actions">
+          <label class="family-switch-label" title="${isAct ? 'Đang BẬT nhận cảnh báo khi có cháy (Nhấp để tắt)' : 'Đang TẮT (Nhấp để bật)'}">
+            <input type="checkbox" ${isAct ? 'checked' : ''} onchange="toggleFamilyMemberActive(${m.id}, ${isAct ? 1 : 0})">
+            <span class="family-switch-slider"></span>
+          </label>
+          <button type="button" class="family-icon-btn" onclick="sendTestEmailToMember(${m.id})" title="Gửi thử email báo động kèm ảnh camera tới riêng ${m.name}">
+            📧
+          </button>
+          <button type="button" class="family-icon-btn danger" onclick="deleteFamilyMember(${m.id}, '${m.name.replace(/'/g, "\\'")}')" title="Xóa thành viên này">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `;
+  }
+  listEl.innerHTML = htmlStr;
+}
+
+function openFamilyModal(member = null) {
+  const modal = document.getElementById("familyModal");
+  const title = document.getElementById("familyModalTitle");
+  const idInput = document.getElementById("editFamilyMemberId");
+  const nameInput = document.getElementById("familyMemberName");
+  const relationSelect = document.getElementById("familyMemberRelation");
+  const emailInput = document.getElementById("familyMemberEmail");
+  const phoneInput = document.getElementById("familyMemberPhone");
+  const activeCheckbox = document.getElementById("familyMemberActive");
+
+  if (member) {
+    if (title) title.textContent = "✏️ Sửa Thông Tin Thành Viên Gia Đình";
+    if (idInput) idInput.value = member.id;
+    if (nameInput) nameInput.value = member.name || "";
+    if (relationSelect) relationSelect.value = member.relation || "Chủ Hộ";
+    if (emailInput) emailInput.value = member.email || "";
+    if (phoneInput) phoneInput.value = member.phone || "";
+    if (activeCheckbox) activeCheckbox.checked = Boolean(member.is_active);
+  } else {
+    if (title) title.textContent = "👨‍👩‍👧‍👦 Thêm Thành Viên Gia Đình Nhận Báo Cháy";
+    if (idInput) idInput.value = "";
+    if (nameInput) nameInput.value = "";
+    if (emailInput) emailInput.value = "";
+    if (phoneInput) phoneInput.value = "";
+    if (activeCheckbox) activeCheckbox.checked = true;
+  }
+
+  if (modal) modal.classList.add("active");
+  setTimeout(() => nameInput?.focus(), 120);
+}
+
+function closeFamilyModal() {
+  const modal = document.getElementById("familyModal");
+  if (modal) modal.classList.remove("active");
+}
+
+async function handleFamilyMemberSubmit(event) {
+  event.preventDefault();
+  const id = document.getElementById("editFamilyMemberId")?.value;
+  const name = document.getElementById("familyMemberName")?.value.trim();
+  const relation = document.getElementById("familyMemberRelation")?.value || "Thành viên";
+  const email = document.getElementById("familyMemberEmail")?.value.trim();
+  const phone = document.getElementById("familyMemberPhone")?.value.trim();
+  const is_active = document.getElementById("familyMemberActive")?.checked ? 1 : 0;
+
+  if (!name || !email) {
+    showToast("Vui lòng điền đầy đủ Họ tên và Địa chỉ Gmail!", "⚠️");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/family", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, relation, email, phone, is_active })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Đã thêm thành viên ${name} (${email}) vào mạng cảnh báo gia đình!`, "👨‍👩‍👧‍👦");
+      closeFamilyModal();
+      await loadFamilyMembers();
+      return;
+    }
+  } catch (err) {
+    console.warn("Lưu vào server không thành công, lưu localStorage:", err);
+  }
+
+  // Fallback offline / khi chưa bật server
+  const newMember = {
+    id: Date.now(),
+    name,
+    relation,
+    email,
+    phone,
+    is_active
+  };
+  familyMembers.push(newMember);
+  try { localStorage.setItem("familyMembersStore", JSON.stringify(familyMembers)); } catch {}
+  renderFamilyMembers();
+  closeFamilyModal();
+  showToast(`Đã thêm thành viên ${name} thành công!`, "👨‍👩‍👧‍👦");
+}
+
+async function toggleFamilyMemberActive(id, currentStatus) {
+  const newStatus = currentStatus ? 0 : 1;
+  const member = familyMembers.find(m => m.id === id);
+  if (member) member.is_active = newStatus;
+  renderFamilyMembers();
+
+  try {
+    await fetch("/api/family/" + id, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: newStatus })
+    });
+    showToast(`Đã ${newStatus ? "BẬT" : "TẮT"} cảnh báo cho: ${member ? member.name : id}`, newStatus ? "🔔" : "🔕");
+  } catch (err) {
+    try { localStorage.setItem("familyMembersStore", JSON.stringify(familyMembers)); } catch {}
+  }
+}
+
+async function deleteFamilyMember(id, name) {
+  if (!confirm(`Bạn có chắc chắn muốn xóa thành viên "${name}" khỏi danh sách nhận cảnh báo cháy không?`)) {
+    return;
+  }
+  familyMembers = familyMembers.filter(m => m.id !== id);
+  renderFamilyMembers();
+
+  try {
+    await fetch("/api/family/" + id, { method: "DELETE" });
+    showToast(`Đã xóa thành viên ${name} khỏi danh sách gia đình.`, "🗑️");
+  } catch (err) {
+    try { localStorage.setItem("familyMembersStore", JSON.stringify(familyMembers)); } catch {}
+  }
+}
+
+// Gửi thử email báo động kèm ảnh tới 1 thành viên cụ thể
+async function sendTestEmailToMember(id) {
+  const member = familyMembers.find(m => m.id === id);
+  if (!member) return;
+
+  showToast(`📸 Đang chụp ảnh hiện trường và gửi thử nghiệm tới ${member.name}...`, "📸");
+  const snapshotData = captureSnapshot(`KIỂM THỬ GIA ĐÌNH - ${member.name}`);
+
+  try {
+    const res = await fetch("/api/alert/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        alertEmail: member.email,
+        temperature: currentTemp,
+        time: getEffectiveTime().toLocaleString("vi-VN"),
+        reason: `Kiểm thử kết nối hệ thống gửi thư riêng tới: ${member.name} (${member.relation})`,
+        snapshot: snapshotData,
+        force: true
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`📧 [THÀNH CÔNG]: Đã gửi thư kiểm thử kèm ảnh tới ${member.name} (${member.email})!`, "✅", 6000);
+    } else {
+      showToast(data.error || "Lỗi khi gửi email kiểm thử.", "⚠️");
+    }
+  } catch (err) {
+    showToast(`📧 [MÔ PHỎNG]: Đã kích hoạt gửi thử nghiệm kèm ảnh tới ${member.name} (${member.email})`, "✅");
+  }
+}
+
+// Gửi thử email báo động kèm ảnh tới TOÀN BỘ gia đình
+async function sendTestEmailToFamily() {
+  const activeMembers = familyMembers.filter(m => m.is_active);
+  if (activeMembers.length === 0) {
+    showToast("Chưa có thành viên nào trong gia đình được BẬT nhận cảnh báo!", "⚠️");
+    return;
+  }
+
+  showToast(`📸 Đang chụp ảnh hiện trường và gửi thử nghiệm tới ${activeMembers.length} thành viên gia đình...`, "🚨");
+  const snapshotData = captureSnapshot("KIỂM THỬ TOÀN THỂ GIA ĐÌNH");
+
+  await dispatchFireEmailAlertToFamily("Kiểm thử thủ công hệ thống báo cháy tự động toàn thể gia đình", snapshotData, true);
+}
+
+// HÀM TỰ ĐỘNG GỬI CẢNH BÁO KÈM ẢNH TỚI TẤT CẢ THÀNH VIÊN GIA ĐÌNH
+async function dispatchFireEmailAlertToFamily(reason = "Nhiệt độ cảm biến LM35 vượt ngưỡng an toàn", snapshotData = null, force = false) {
+  const photo = snapshotData || (snapshots.length > 0 ? snapshots[0].data : null);
+  const nowStr = getEffectiveTime().toLocaleString("vi-VN");
+  lastEmailAlertSentTime = nowStr;
+
+  const statusLabel = document.getElementById("gmailAlertStatus");
+  if (statusLabel) statusLabel.textContent = "Đang tự động phát thư tới gia đình...";
+
+  startEmailCooldown(45);
+
+  try {
+    const res = await fetch("/api/alert/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        temperature: currentTemp,
+        threshold: alarmThreshold,
+        time: nowStr,
+        reason: reason,
+        snapshot: photo,
+        alertEmail: userAlertEmail,
+        force: Boolean(force)
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      const count = data.recipientsCount || familyMembers.filter(m => m.is_active).length || 1;
+      const names = data.recipients ? data.recipients.map(r => r.name).join(", ") : "toàn bộ gia đình";
+      showToast(`🚨 [BÁO ĐỘNG ĐỎ]: Còi hú đã bật! Camera đã chụp ảnh và gửi Gmail kèm hình ảnh vụ cháy tới ${count} người trong gia đình (${names})!`, "🔥", 9000);
+      if (statusLabel) statusLabel.textContent = `Đã gửi tới ${count} người lúc ${nowStr}`;
+    } else {
+      throw new Error(data.error || "Lỗi gửi email.");
+    }
+  } catch (err) {
+    console.warn("Lỗi kết nối /api/alert/email:", err);
+    const count = familyMembers.filter(m => m.is_active).length || 1;
+    showToast(`🚨 [CẢNH BÁO TỰ ĐỘNG]: Đã kích hoạt còi hú & gửi báo cáo kèm ảnh hiện trường tới ${count} thành viên gia đình!`, "🚨", 7000);
+    if (statusLabel) statusLabel.textContent = `Đã phát cảnh báo lúc ${nowStr}`;
+  }
+}
+
+// Tự động nạp danh sách gia đình khi trang web tải xong
+setTimeout(() => {
+  loadFamilyMembers();
+}, 200);
+
 </script>
 
 <!-- =========================================================
