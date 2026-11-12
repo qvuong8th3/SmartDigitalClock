@@ -7,7 +7,7 @@
       "password_hash": "admin123",
       "full_name": "Quản Trị Viên Hệ Thống PCCC",
       "created_at": "2026-11-11T13:09:19.808Z",
-      "last_login": "2026-11-12T12:58:18.313Z"
+      "last_login": "2026-11-12T13:26:32.319Z"
     },
     {
       "id": 2,
@@ -47,7 +47,7 @@
     "buzzer_enabled": 1,
     "email_enabled": 1,
     "rate_of_rise_threshold": 3,
-    "updated_at": "2026-11-12T12:58:18.227Z"
+    "updated_at": "2026-11-12T13:26:32.267Z"
   },
   "sensor_data": [
     {
@@ -148,6 +148,15 @@
       "rate_of_rise": 0.2,
       "status": "NORMAL",
       "recorded_at": "2026-11-12T12:58:18.302Z"
+    },
+    {
+      "id": 12,
+      "device_id": "ARDUINO-UNO-01",
+      "temperature": 31.8,
+      "source": "USB_SERIAL",
+      "rate_of_rise": 0.2,
+      "status": "NORMAL",
+      "recorded_at": "2026-11-12T13:26:32.313Z"
     }
   ],
   "fire_events": [
@@ -217,6 +226,46 @@
     }
   ],
   "email_logs": [
+    {
+      "id": 63,
+      "event_id": "INC-992341",
+      "recipient": "lx426352@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-992341",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T13:26:32.345Z"
+    },
+    {
+      "id": 62,
+      "event_id": "INC-992341",
+      "recipient": "lx53895@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-992341",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T13:26:32.343Z"
+    },
+    {
+      "id": 61,
+      "event_id": "INC-992341",
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "🚨 [BÁO ĐỘNG ĐỎ PCCC] CẢNH BÁO NGUY CƠ HỎA HOẠN: 66.2°C - Mã: INC-992341",
+      "temperature": 66.2,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T13:26:32.341Z"
+    },
+    {
+      "id": 60,
+      "event_id": null,
+      "recipient": "test_student_iot@gmail.com",
+      "subject": "[KIỂM THỬ KẾT NỐI] Hệ Thống Cảnh Báo PCCC IoT 102 - Thử Nghiệm Hoạt Động",
+      "temperature": 28.5,
+      "status": "SIMULATION_LOG",
+      "error_message": "",
+      "sent_at": "2026-11-12T13:26:32.307Z"
+    },
     {
       "id": 59,
       "event_id": "INC-399774",
@@ -828,6 +877,55 @@
   ],
   "system_logs": [
     {
+      "id": 71,
+      "action": "FIRE_ALERT_BROADCAST",
+      "details": "Đã gửi cảnh báo cháy 66.2°C kèm ảnh hiện trường tới 3 thành viên gia đình",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T13:26:32.348Z"
+    },
+    {
+      "id": 70,
+      "action": "DELETE_FAMILY_MEMBER",
+      "details": "Đã xóa thành viên ID 6 khỏi danh sách gia đình",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T13:26:32.338Z"
+    },
+    {
+      "id": 69,
+      "action": "UPDATE_FAMILY_MEMBER",
+      "details": "Cập nhật thành viên ID 6: Con Gái (Hoa)",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T13:26:32.332Z"
+    },
+    {
+      "id": 68,
+      "action": "ADD_FAMILY_MEMBER",
+      "details": "Đã thêm thành viên gia đình: Con Gái (Hoa) (hoa.family@gmail.com)",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T13:26:32.327Z"
+    },
+    {
+      "id": 67,
+      "action": "USER_LOGIN",
+      "details": "Người dùng admin đăng nhập thành công.",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T13:26:32.321Z"
+    },
+    {
+      "id": 66,
+      "action": "SYNC_EMAIL",
+      "details": "Đã đồng bộ Gmail cảnh báo: test_student_iot@gmail.com",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T13:26:32.280Z"
+    },
+    {
+      "id": 65,
+      "action": "UPDATE_THRESHOLDS",
+      "details": "Đã cập nhật ngưỡng: Cảnh báo 41.5°C, Nguy hiểm 51.5°C",
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-11-12T13:26:32.269Z"
+    },
+    {
       "id": 64,
       "action": "UPDATE_FAMILY_MEMBER",
       "details": "Cập nhật thành viên ID 4: nguyễn văn phùng",
@@ -1277,6 +1375,15 @@
   ],
   "family_members": [
     {
+      "id": 5,
+      "name": "Quốc Vương (Chủ Hộ)",
+      "relation": "Chủ Hộ",
+      "email": "lx53895@gmail.com",
+      "phone": "",
+      "is_active": 1,
+      "created_at": "2026-11-12T13:25:45.358Z"
+    },
+    {
       "id": 1,
       "name": "Bố (Chủ Hộ)",
       "relation": "Chủ Hộ",
@@ -1312,7 +1419,7 @@
       "relation": "Người Thân",
       "email": "lx426352@gmail.com",
       "phone": "0478362764",
-      "is_active": 0,
+      "is_active": 1,
       "created_at": "2026-11-12T13:11:24.308Z",
       "updated_at": "2026-11-12T13:17:52.984Z"
     }
